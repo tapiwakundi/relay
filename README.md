@@ -26,11 +26,14 @@ neon config init   # if neon.ts is missing
 # neon.ts already declares auth + the relay-storage bucket
 neon deploy
 pnpm install
+cp apps/api/.env.example apps/api/.env
+cp apps/desktop/.env.example apps/desktop/.env
+neon env pull --file apps/api/.env
 pnpm --filter @relay/api db:push
 pnpm dev
 ```
 
-Create a Google Cloud **Web application** OAuth client and put `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in `.env`. Add these authorized redirect URIs:
+Create a Google Cloud **Web application** OAuth client and put `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in `apps/api/.env`. Add these authorized redirect URIs:
 
 - `http://localhost:3001/api/auth/callback/google`
 - `https://relay-api-rsck.onrender.com/api/auth/callback/google`
@@ -65,7 +68,15 @@ pnpm dev:mobile:sim      # Device Hub / simulator
 
 ## Environment
 
-Filled by `neon link` / `neon deploy` / `neon env pull`:
+Each app loads only its own `apps/<app>/.env` (and optional `.env.local`). Copy the matching `.env.example` to start. Do not put secrets in a repo-root `.env`.
+
+Pull Neon-managed API vars into the API file:
+
+```bash
+neon env pull --file apps/api/.env
+```
+
+### API (`apps/api/.env`)
 
 | Variable | Purpose |
 |---|---|
@@ -73,11 +84,25 @@ Filled by `neon link` / `neon deploy` / `neon env pull`:
 | `DATABASE_URL_UNPOOLED` | Direct URL for Drizzle push/migrate |
 | `BETTER_AUTH_SECRET` | Session signing secret (`openssl rand -base64 32`) |
 | `BETTER_AUTH_URL` | Public API origin (`http://localhost:3001` in dev, Render URL in production) |
-| `RELAY_API_URL` | Required for packaged desktop builds. Production: `https://relay-api-rsck.onrender.com` |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Your Google Web OAuth client |
 | `AUTH_ALLOWED_HOSTS` | Extra Host values for OAuth (include port) |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_ENDPOINT_URL_S3` / `AWS_REGION` | Object Storage (`relay-storage`) |
 | `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | Huddle media (optional) |
+
+### Desktop (`apps/desktop/.env`)
+
+| Variable | Purpose |
+|---|---|
+| `RELAY_API_URL` | API origin. Local: `http://localhost:3001`. Packaged builds: `https://relay-api-rsck.onrender.com` |
+
+### Mobile (`apps/mobile/.env`)
+
+| Variable | Purpose |
+|---|---|
+| `EXPO_PUBLIC_API_URL` | API origin the phone can reach. `setup:env` writes your LAN IP. |
+| `EXPO_ACCESS_TOKEN` | Optional Expo services token |
+
+The landing page is static and does not need env vars.
 
 Google redirect URI is `{BETTER_AUTH_URL}/api/auth/callback/google`. Desktop OAuth returns through the `com.endurancelabs.relaydesktop` URL scheme; mobile continues to use the API on port `3001`.
 
@@ -125,10 +150,12 @@ git push origin v0.1.0
 7. The `Release desktop` workflow signs, notarizes, and publishes `Relay-mac-arm64.dmg`.
 8. Open the landing page and confirm the Download button follows that latest-release URL.
 
-Local unsigned/ad-hoc packaging still needs `RELAY_API_URL` set, for example:
+Local unsigned/ad-hoc packaging still needs `RELAY_API_URL` in `apps/desktop/.env`, for example:
 
 ```bash
-RELAY_API_URL=https://relay-api-rsck.onrender.com pnpm --filter @relay/desktop dist
+# apps/desktop/.env
+RELAY_API_URL=https://relay-api-rsck.onrender.com
+pnpm --filter @relay/desktop dist
 ```
 
 Without Apple signing secrets, notarization is skipped. Do not distribute that DMG publicly.

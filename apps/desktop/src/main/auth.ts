@@ -10,14 +10,9 @@ app.setName("Relay");
 app.setAppUserModelId(APP_ID);
 
 if (!app.isPackaged) {
-  for (const path of [
-    resolve(process.cwd(), ".env"),
-    resolve(process.cwd(), ".env.local"),
-    resolve(process.cwd(), "../../.env"),
-    resolve(process.cwd(), "../../.env.local"),
-  ]) {
-    config({ path, override: false });
-  }
+  const appDir = resolve(__dirname, "../..");
+  config({ path: resolve(appDir, ".env") });
+  config({ path: resolve(appDir, ".env.local"), override: true });
 }
 
 function apiOrigin() {
@@ -28,7 +23,7 @@ function apiOrigin() {
     }
     return packaged;
   }
-  const configured = process.env.RELAY_API_URL || process.env.BETTER_AUTH_URL || "http://localhost:3001";
+  const configured = process.env.RELAY_API_URL || "http://localhost:3001";
   return configured.replace(/\/$/, "");
 }
 

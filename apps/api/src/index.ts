@@ -10,9 +10,9 @@ import { createDb } from "./db/index.js";
 import { Hub } from "./hub.js";
 import { attachSockets } from "./ws.js";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-config({ path: resolve(root, ".env") });
-config({ path: resolve(root, ".env.local") });
+const appDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+config({ path: resolve(appDir, ".env") });
+config({ path: resolve(appDir, ".env.local"), override: true });
 
 const port = Number(process.env.PORT ?? 3001);
 

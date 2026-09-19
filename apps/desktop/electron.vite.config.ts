@@ -3,8 +3,8 @@ import { config } from "dotenv";
 import react from "@vitejs/plugin-react";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 
-for (const path of [resolve(__dirname, "../../.env"), resolve(__dirname, "../../.env.local")]) {
-  config({ path, override: path.endsWith(".env.local") });
+for (const name of [".env", ".env.local"] as const) {
+  config({ path: resolve(__dirname, name), override: name === ".env.local" });
 }
 
 function packagedApiUrl(command: "build" | "serve") {

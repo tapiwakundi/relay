@@ -21,7 +21,7 @@ function loadEnvFile(envPath, { overwrite = false } = {}) {
   }
 }
 
-loadEnvFile(path.resolve(__dirname, "../../.env"));
-loadEnvFile(path.resolve(__dirname, ".env"), { overwrite: true });
+loadEnvFile(path.resolve(__dirname, ".env"));
+loadEnvFile(path.resolve(__dirname, ".env.local"), { overwrite: true });
 
 module.exports = require("./app.json");
