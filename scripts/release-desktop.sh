@@ -9,8 +9,27 @@ DMG="apps/desktop/release/Relay-mac-arm64.dmg"
 ZIP="apps/desktop/release/Relay-mac-arm64.zip"
 UPDATE_YML="apps/desktop/release/latest-mac.yml"
 APP="apps/desktop/release/mac-arm64/Relay.app"
-VERSION="$(node -p "require('./apps/desktop/package.json').version")"
-TAG="v${VERSION}"
+DESKTOP_PACKAGE="apps/desktop/package.json"
+ROOT_PACKAGE="package.json"
+VERSION=""
+TAG=""
+VERSION_BUMPED=0
+VERSION_COMMITTED=0
+VERSION_BACKUP_DIR=""
+
+cleanup() {
+  status=$?
+  if [[ "$status" -ne 0 && "$VERSION_BUMPED" -eq 1 && "$VERSION_COMMITTED" -eq 0 && -n "$VERSION_BACKUP_DIR" ]]; then
+    git reset -q HEAD -- "$ROOT_PACKAGE" "$DESKTOP_PACKAGE" 2>/dev/null || true
+    cp "$VERSION_BACKUP_DIR/root-package.json" "$ROOT_PACKAGE"
+    cp "$VERSION_BACKUP_DIR/desktop-package.json" "$DESKTOP_PACKAGE"
+    echo "Release failed before the version commit; restored the previous version."
+  fi
+  if [[ -n "$VERSION_BACKUP_DIR" ]]; then
+    rm -rf "$VERSION_BACKUP_DIR"
+  fi
+}
+trap cleanup EXIT
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "Desktop releases must be built on macOS."
@@ -64,8 +83,34 @@ if [[ "$healthy" -ne 1 ]]; then
   exit 1
 fi
 
-echo "Pushing $(git rev-parse --abbrev-ref HEAD) to origin…"
-git push -u origin HEAD
+CURRENT_VERSION="$(node -p "require('./$DESKTOP_PACKAGE').version")"
+if gh release view "v${CURRENT_VERSION}" >/dev/null 2>&1; then
+  VERSION_BACKUP_DIR="$(mktemp -d)"
+  cp "$ROOT_PACKAGE" "$VERSION_BACKUP_DIR/root-package.json"
+  cp "$DESKTOP_PACKAGE" "$VERSION_BACKUP_DIR/desktop-package.json"
+  VERSION_BUMPED=1
+  VERSION="$(
+    node - "$ROOT_PACKAGE" "$DESKTOP_PACKAGE" <<'NODE'
+const fs = require("node:fs");
+const [rootPath, desktopPath] = process.argv.slice(2);
+const desktop = JSON.parse(fs.readFileSync(desktopPath, "utf8"));
+const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(desktop.version);
+if (!match) throw new Error(`Desktop version must be x.y.z, received ${desktop.version}`);
+const next = `${match[1]}.${match[2]}.${Number(match[3]) + 1}`;
+for (const file of [rootPath, desktopPath]) {
+  const pkg = JSON.parse(fs.readFileSync(file, "utf8"));
+  pkg.version = next;
+  fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
+}
+process.stdout.write(next);
+NODE
+  )"
+  echo "Bumped Relay desktop ${CURRENT_VERSION} → ${VERSION}."
+else
+  VERSION="$CURRENT_VERSION"
+  echo "Version ${VERSION} has not been published yet; retrying it without another bump."
+fi
+TAG="v${VERSION}"
 
 echo "Building, signing, and notarizing Relay ${VERSION}…"
 export RELAY_API_URL="$PRODUCTION_API_URL"
@@ -89,6 +134,15 @@ ASSETS=("$DMG" "$DMG.sha256" "$ZIP" "$ZIP.sha256" "$ZIP.blockmap" "$UPDATE_YML")
 if [[ -f "$DMG.blockmap" ]]; then
   ASSETS+=("$DMG.blockmap")
 fi
+
+if [[ "$VERSION_BUMPED" -eq 1 ]]; then
+  echo "Committing ${TAG} version bump…"
+  git commit -m "chore(desktop): release ${TAG}" -- "$ROOT_PACKAGE" "$DESKTOP_PACKAGE"
+  VERSION_COMMITTED=1
+fi
+
+echo "Pushing $(git rev-parse --abbrev-ref HEAD) to origin…"
+git push -u origin HEAD
 
 NOTES="$(printf '%s\n' \
   "Relay ${VERSION} for Apple Silicon." \
