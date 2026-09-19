@@ -78,6 +78,8 @@ export function WorkspaceApp() {
   const [inHuddle, setInHuddle] = useState(false);
   const [muted, setMuted] = useState(false);
   const [camera, setCamera] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
   const [profile, setProfile] = useState<Member | null>(null);
   const [nav, setNav] = useState<{ stack: string[]; idx: number }>({ stack: [], idx: -1 });
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -178,18 +180,23 @@ export function WorkspaceApp() {
   }
 
   useEffect(() => {
-    const token =
-      sessionStorage.getItem("relay-invite") ??
-      new URLSearchParams(window.location.search).get("invite");
-    if (!token || !me) return;
-    void api("/api/invites/accept", { method: "POST", body: JSON.stringify({ token }) })
-      .catch(() => null)
-      .finally(() => {
-        sessionStorage.removeItem("relay-invite");
-        if (window.location.search.includes("invite=")) window.history.replaceState({}, "", "/");
-        void qc.invalidateQueries({ queryKey: keys.me });
-        void qc.invalidateQueries({ queryKey: ["bootstrap"] });
-      });
+    const accept = () => {
+      const token =
+        sessionStorage.getItem("relay-invite") ??
+        new URLSearchParams(window.location.search).get("invite");
+      if (!token || !me) return;
+      void api("/api/invites/accept", { method: "POST", body: JSON.stringify({ token }) })
+        .catch(() => null)
+        .finally(() => {
+          sessionStorage.removeItem("relay-invite");
+          if (window.location.search.includes("invite=")) window.history.replaceState({}, "", "/");
+          void qc.invalidateQueries({ queryKey: keys.me });
+          void qc.invalidateQueries({ queryKey: ["bootstrap"] });
+        });
+    };
+    accept();
+    window.addEventListener("relay-invite", accept);
+    return () => window.removeEventListener("relay-invite", accept);
   }, [me, qc]);
 
   useEffect(() => {
@@ -204,6 +211,17 @@ export function WorkspaceApp() {
   useEffect(() => {
     if (workspace) document.title = `${workspace.name} | Relay`;
   }, [workspace]);
+
+  useEffect(() => {
+    const count = channels.reduce((sum, channel) => sum + channel.unreadCount + channel.mentionCount, 0);
+    void window.relayDesktop.setBadge(count);
+  }, [channels]);
+
+  useEffect(() => {
+    void window.relayDesktop.setActiveChannel(activeId);
+  }, [activeId]);
+
+  useEffect(() => window.relayDesktop.onNavigate((id) => goTo(id)), []);
 
   useEffect(() => {
     const huddle = messagesQuery.data?.huddle;
@@ -347,6 +365,7 @@ export function WorkspaceApp() {
 
   async function joinHuddle() {
     if (!activeId) return;
+    await window.relayDesktop.prepareMedia();
     const res = await api<{ huddle: Huddle; livekit: { url: string | null; token: string | null } }>(
       `/api/channels/${activeId}/huddle/join`,
       { method: "POST" },
@@ -370,6 +389,30 @@ export function WorkspaceApp() {
     await roomRef.current?.disconnect();
     roomRef.current = null;
     setInHuddle(false);
+    setSharing(false);
+    setShareError(null);
+  }
+
+  async function shareScreen() {
+    const room = roomRef.current;
+    if (!room) {
+      setShareError("Join the huddle before sharing your screen.");
+      return;
+    }
+    const next = !sharing;
+    setShareError(null);
+    try {
+      await room.localParticipant.setScreenShareEnabled(next);
+      setSharing(next);
+    } catch (error) {
+      setSharing(false);
+      const denied = error instanceof Error ? error.message : "";
+      setShareError(
+        denied.toLowerCase().includes("permission") || denied.toLowerCase().includes("notallowed")
+          ? "Screen sharing was blocked. Allow screen recording for Relay in System Settings, then try again."
+          : "Couldn’t share the screen. Allow screen recording for Relay in System Settings, then try again.",
+      );
+    }
   }
 
   async function toggleMic() {
@@ -497,6 +540,16 @@ export function WorkspaceApp() {
         : (memberMap.get(profile.userId) ?? profile)
       : null;
 
+  if (meQuery.isError) {
+    return (
+      <div className="shell" style={{ background: "var(--aubergine)", color: "#fff", padding: 32 }}>
+        <p>Couldn’t load Relay.</p>
+        <button type="button" onClick={() => void meQuery.refetch()}>
+          Try again
+        </button>
+      </div>
+    );
+  }
   if (meQuery.isPending || !me) {
     return <div className="shell" style={{ background: "var(--aubergine)" }} />;
   }
@@ -518,7 +571,7 @@ export function WorkspaceApp() {
     : null;
 
   return (
-    <div className={`shell ${thread || shownProfile ? "with-thread" : ""} ${window.electron ? "electron" : ""}`}>
+    <div className={`shell ${thread || shownProfile ? "with-thread" : ""} electron`}>
       <header className="topbar">
         <div className="history-btns">
           <button className="icon-btn" aria-label="Back" disabled={nav.idx <= 0} onClick={historyBack}>
@@ -804,12 +857,10 @@ export function WorkspaceApp() {
               <button onClick={toggleCam} title="Video">
                 <Video />
               </button>
-              <button
-                title="Share screen"
-                onClick={() => void roomRef.current?.localParticipant.setScreenShareEnabled(true)}
-              >
+              <button title={sharing ? "Stop sharing" : "Share screen"} onClick={() => void shareScreen()}>
                 <Screen />
               </button>
+              {shareError ? <div className="login-error">{shareError}</div> : null}
               <button className="leave" onClick={() => void leaveHuddle()} title="Leave huddle">
                 <Leave />
               </button>

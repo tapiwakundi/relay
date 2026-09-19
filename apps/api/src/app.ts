@@ -29,6 +29,7 @@ import { Hub, endHuddleIfEmpty } from "./hub.js";
 import { createChatMessage } from "./send.js";
 import { objectKey, publicFileUrl, storage } from "./storage.js";
 import { registerExtraRoutes } from "./extra.js";
+import { desktopHandoffHtml } from "./desktop-handoff.js";
 
 type Env = {
   Variables: {
@@ -42,13 +43,20 @@ export function createApp(opts: { db: AppDb; hub: Hub; auth: Auth }) {
   const { db, hub, auth } = opts;
   const app = new Hono<Env>();
 
-  const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:5173";
-  const origins = [webOrigin, "http://localhost:5173", "http://localhost:3001", "http://localhost:8081"];
+  const apiOrigin = process.env.BETTER_AUTH_URL ?? "http://localhost:3001";
+  const origins = [apiOrigin, "http://localhost:3001", "http://127.0.0.1:3001", "http://localhost:8081"];
 
   function originAllowed(origin: string) {
     if (!origin) return true;
     if (origins.includes(origin)) return true;
-    if (origin.startsWith("exp://") || origin.startsWith("relay://") || origin.startsWith("exp+relay://")) return true;
+    if (
+      origin.startsWith("exp://") ||
+      origin.startsWith("relay://") ||
+      origin.startsWith("exp+relay://") ||
+      origin.startsWith("com.endurancelabs.relaydesktop:")
+    ) {
+      return true;
+    }
     try {
       const { hostname } = new URL(origin);
       if (hostname === "localhost" || hostname === "127.0.0.1") return true;
@@ -66,7 +74,7 @@ export function createApp(opts: { db: AppDb; hub: Hub; auth: Auth }) {
   app.use("*", async (c, next) => {
     const origin = c.req.header("origin") ?? "";
     if (originAllowed(origin)) {
-      c.header("Access-Control-Allow-Origin", origin || webOrigin);
+      c.header("Access-Control-Allow-Origin", origin || apiOrigin);
       c.header("Access-Control-Allow-Credentials", "true");
       c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, set-auth-token, expo-origin");
       c.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
@@ -75,6 +83,9 @@ export function createApp(opts: { db: AppDb; hub: Hub; auth: Auth }) {
     if (c.req.method === "OPTIONS") return c.body(null, 204);
     return next();
   });
+
+  app.get("/", (c) => c.html(desktopHandoffHtml));
+  app.get("/desktop/callback", (c) => c.html(desktopHandoffHtml));
 
   app.all("/api/auth/*", (c) => auth.handler(c.req.raw));
 

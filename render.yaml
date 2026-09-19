@@ -3,7 +3,7 @@ services:
     name: relay-api
     runtime: node
     plan: starter
-    buildCommand: pnpm install --frozen-lockfile=false && pnpm --filter @relay/web build
+    buildCommand: pnpm install --frozen-lockfile=false && pnpm --filter @relay/shared build && pnpm --filter @relay/api build
     startCommand: pnpm --filter @relay/api start
     healthCheckPath: /api/health
     envVars:

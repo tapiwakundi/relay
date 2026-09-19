@@ -1,0 +1,31 @@
+appId: com.endurancelabs.relaydesktop
+productName: Relay
+copyright: Copyright © Endurance Labs
+directories:
+  buildResources: packaging
+  output: release
+files:
+  - out/**/*
+  - package.json
+extraMetadata:
+  main: out/main/index.js
+asar: true
+npmRebuild: false
+mac:
+  category: public.app-category.social-networking
+  icon: packaging/icon.icns
+  target:
+    - dir
+    - dmg
+  entitlements: packaging/entitlements.mac.plist
+  entitlementsInherit: packaging/entitlements.mac.plist
+  gatekeeperAssess: false
+  extendInfo:
+    NSMicrophoneUsageDescription: Relay uses the microphone for huddles.
+    NSCameraUsageDescription: Relay uses the camera for huddles.
+    NSScreenCaptureUsageDescription: Relay records the screen only while you share it in a huddle.
+protocols:
+  - name: Relay
+    schemes:
+      - com.endurancelabs.relaydesktop
+      - relay

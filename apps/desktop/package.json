@@ -3,11 +3,34 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "electron/main.mjs",
+  "main": "out/main/index.js",
   "scripts": {
-    "dev": "electron electron/main.mjs"
+    "dev": "electron-vite dev --watch",
+    "build": "electron-vite build",
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
+    "dist": "electron-vite build && electron-builder --mac"
+  },
+  "dependencies": {
+    "@better-auth/electron": "1.7.5",
+    "@relay/shared": "workspace:*",
+    "@tanstack/react-query": "^5.103.1",
+    "better-auth": "1.7.5",
+    "conf": "^15.0.2",
+    "dotenv": "^17.2.2",
+    "livekit-client": "^2.15.7",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
-    "electron": "^37.4.0"
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^5.0.3",
+    "electron": "^37.4.0",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^4.0.1",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5"
   }
 }

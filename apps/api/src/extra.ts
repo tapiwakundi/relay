@@ -41,6 +41,10 @@ async function requireMember(db: AppDb, workspaceId: string, userId: string) {
   return row ?? null;
 }
 
+function inviteLink(token: string) {
+  return `relay://invite?invite=${encodeURIComponent(token)}`;
+}
+
 async function readImage(c: { req: { formData: () => Promise<FormData> } }) {
   const form = await c.req.formData();
   const file = form.get("file");
@@ -483,7 +487,6 @@ export function registerExtraRoutes(authed: Hono<Env>, db: AppDb, hub: Hub) {
       .from(invite)
       .where(and(eq(invite.workspaceId, mem.workspaceId), eq(invite.status, "pending")))
       .orderBy(desc(invite.createdAt));
-    const origin = c.req.header("origin") ?? process.env.WEB_ORIGIN ?? "http://localhost:5173";
     return c.json({
       invites: rows.map((r) => ({
         id: r.id,
@@ -492,7 +495,7 @@ export function registerExtraRoutes(authed: Hono<Env>, db: AppDb, hub: Hub) {
         invitedBy: r.invitedBy,
         token: r.token,
         status: r.status,
-        url: `${origin}/?invite=${r.token}`,
+        url: inviteLink(r.token),
         createdAt: r.createdAt.toISOString(),
       })),
     });
@@ -515,7 +518,6 @@ export function registerExtraRoutes(authed: Hono<Env>, db: AppDb, hub: Hub) {
       token,
       status: "pending",
     });
-    const origin = c.req.header("origin") ?? process.env.WEB_ORIGIN ?? "http://localhost:5173";
     return c.json({
       invite: {
         id,
@@ -524,7 +526,7 @@ export function registerExtraRoutes(authed: Hono<Env>, db: AppDb, hub: Hub) {
         invitedBy: userId,
         token,
         status: "pending" as const,
-        url: `${origin}/?invite=${token}`,
+        url: inviteLink(token),
         createdAt: new Date().toISOString(),
       },
     });
