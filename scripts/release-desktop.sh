@@ -73,11 +73,10 @@ test -d "$APP"
 test -f "$DMG"
 
 echo "Verifying signature and notarization…"
+# Gatekeeper checks the app. electron-builder leaves the DMG unsigned on purpose.
 codesign --verify --deep --strict --verbose=2 "$APP"
-spctl --assess --type install --verbose "$APP"
-spctl --assess --type install --verbose "$DMG"
+spctl --assess --type execute --verbose "$APP"
 xcrun stapler validate "$APP"
-xcrun stapler validate "$DMG"
 shasum -a 256 "$DMG" | tee "$DMG.sha256"
 
 NOTES="$(printf '%s\n' \
