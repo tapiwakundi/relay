@@ -1,0 +1,13 @@
+{
+  "name": "@relay/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.mjs",
+  "scripts": {
+    "dev": "electron electron/main.mjs"
+  },
+  "devDependencies": {
+    "electron": "^37.4.0"
+  }
+}

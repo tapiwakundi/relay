@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Relay",
+    "slug": "relay",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "relay",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.relay.mobile",
+      "infoPlist": {
+        "UIBackgroundModes": ["audio", "voip", "remote-notification"]
+      }
+    },
+    "android": {
+      "package": "app.relay.mobile",
+      "permissions": ["RECORD_AUDIO", "CAMERA", "POST_NOTIFICATIONS"]
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "sounds": []
+        }
+      ],
+      "expo-secure-store"
+    ]
+  }
+}

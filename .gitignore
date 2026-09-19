@@ -1,0 +1,17 @@
+node_modules
+dist
+build
+.next
+.expo
+.turbo
+.data
+*.log
+.env
+.env.local
+.DS_Store
+apps/api/data
+apps/desktop/release
+*.tsbuildinfo
+.vscode
+.idea
+.neon

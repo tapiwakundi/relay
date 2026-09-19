@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: relay-api
+    runtime: node
+    plan: starter
+    buildCommand: pnpm install --frozen-lockfile=false && pnpm --filter @relay/web build
+    startCommand: pnpm --filter @relay/api start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
