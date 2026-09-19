@@ -8,7 +8,7 @@ Slack-shaped workspace chat: channels, DMs, threads, huddles, desktop, and mobil
 
 - **API:** Hono + TypeScript + WebSockets on Render
 - **Auth:** Better Auth on the API (email/password + system-browser Google for desktop)
-- **DB:** Neon Postgres (local fallback: PGlite if `DATABASE_URL` is empty)
+- **DB:** Neon Postgres
 - **Files:** Neon Object Storage (`relay-storage`, private bucket)
 - **Desktop:** Electron (`com.endurancelabs.relaydesktop`) with a bundled React renderer, native notifications, and screen sharing
 - **Mobile:** Expo + push token registration (`com.endurancelabs.relay`)
@@ -62,7 +62,7 @@ Filled by `neon link` / `neon deploy` / `neon env pull`:
 
 | Variable | Purpose |
 |---|---|
-| `DATABASE_URL` | Neon pooled URL. Empty = local PGlite in `apps/api/data` |
+| `DATABASE_URL` | Required Neon pooled URL |
 | `DATABASE_URL_UNPOOLED` | Direct URL for Drizzle push/migrate |
 | `BETTER_AUTH_SECRET` | Session signing secret (`openssl rand -base64 32`) |
 | `BETTER_AUTH_URL` | Public API origin (`http://localhost:3001` in dev) |
