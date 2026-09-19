@@ -214,6 +214,13 @@ export const Bold = (p: P) => (
     <path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z" />
   </svg>
 );
+export const FormatText = (p: P) => (
+  <svg {...s({ size: 18, ...p })}>
+    <path d="M3.5 18 8.3 6h1.4l4.8 12M5.5 13h7" />
+    <path d="M16 12.7c.8-.7 1.7-1 2.7-1 1.4 0 2.3.8 2.3 2.2V18M21 15.2h-2.5c-1.8 0-2.8.6-2.8 1.7 0 .9.7 1.5 1.8 1.5 1.4 0 2.6-.8 3.5-2" />
+    <path d="M3.5 21h17.5" />
+  </svg>
+);
 export const Italic = (p: P) => (
   <svg {...s({ size: 14, ...p })}>
     <path d="M12 5h6M6 19h6M14.5 5 9.5 19" />

@@ -52,41 +52,6 @@ export function LoginScreen() {
 
   return (
     <div className="login">
-      <div className="login-top">
-        <div className="login-mark">
-          <img src={logo} width={32} height={32} alt="" />
-          relay<span className="dot">.</span>
-        </div>
-        <div>
-          {mode === "signin" ? (
-            <>
-              New to Relay?{" "}
-              <a
-                href="#signup"
-                onClick={(ev) => {
-                  ev.preventDefault();
-                  setMode("signup");
-                }}
-              >
-                Create an account
-              </a>
-            </>
-          ) : (
-            <>
-              Already using Relay?{" "}
-              <a
-                href="#signin"
-                onClick={(ev) => {
-                  ev.preventDefault();
-                  setMode("signin");
-                }}
-              >
-                Sign in
-              </a>
-            </>
-          )}
-        </div>
-      </div>
       <div className="login-card">
         <img className="login-logo" src={logo} width={72} height={72} alt="Relay" />
         <h1>{mode === "signup" ? "Create an account" : "Sign in to Relay"}</h1>
@@ -131,8 +96,34 @@ export function LoginScreen() {
             {mode === "signup" ? "Create account" : "Sign in with email"}
           </button>
         </form>
-        <div className="login-foot">
-          Email and password work now. Google needs your OAuth client IDs in .env.
+        <div className="login-switch">
+          {mode === "signin" ? (
+            <>
+              New to Relay?{" "}
+              <a
+                href="#signup"
+                onClick={(ev) => {
+                  ev.preventDefault();
+                  setMode("signup");
+                }}
+              >
+                Create an account
+              </a>
+            </>
+          ) : (
+            <>
+              Already using Relay?{" "}
+              <a
+                href="#signin"
+                onClick={(ev) => {
+                  ev.preventDefault();
+                  setMode("signin");
+                }}
+              >
+                Sign in
+              </a>
+            </>
+          )}
         </div>
       </div>
     </div>

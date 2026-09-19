@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Member } from "@relay/shared";
 import { EMOJI_QUICK } from "@relay/shared";
 import { editorIsEmpty, escapeHtml, htmlToMarkdown, textBeforeCaret } from "../lib/format";
-import { Code, Emoji, Italic, Link, List, Mention, Plus, Send, Strike } from "./Icons";
+import { Avatar } from "./Avatar";
+import { Bold, Code, Emoji, FormatText, Italic, Link, List, Mention, Plus, Send, Strike } from "./Icons";
 
 type Marks = { bold: boolean; italic: boolean; strike: boolean; list: boolean; code: boolean };
 
@@ -20,9 +21,11 @@ export function Composer({
   onTyping: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
+  const [formatOpen, setFormatOpen] = useState(true);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQ, setMentionQ] = useState("");
+  const [mentionIndex, setMentionIndex] = useState(0);
   const [empty, setEmpty] = useState(true);
   const [marks, setMarks] = useState<Marks>({
     bold: false,
@@ -33,6 +36,7 @@ export function Composer({
   });
   const ref = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const mentionListId = useId();
 
   useEffect(() => {
     const el = ref.current;
@@ -64,9 +68,11 @@ export function Composer({
       code: inCode,
     });
     const before = textBeforeCaret(el);
-    const at = /(?:^|\s)@([A-Za-z0-9._-]*)$/.exec(before);
+    const at = /(?:^|[\s([{])@([^@\n\u00a0]{0,60})$/.exec(before);
+    const nextQuery = at?.[1] ?? "";
+    if (!at || nextQuery !== mentionQ) setMentionIndex(0);
     setMentionOpen(Boolean(at));
-    setMentionQ(at?.[1] ?? "");
+    setMentionQ(nextQuery);
   }
 
   function exec(command: string, value?: string) {
@@ -124,21 +130,27 @@ export function Composer({
     sync();
   }
 
-  function insertMention(name: string) {
+  function insertMention(member: Member) {
     const el = ref.current;
     if (!el) return;
     el.focus();
     const sel = window.getSelection();
     if (sel?.rangeCount) {
       const before = textBeforeCaret(el);
-      const match = /@([A-Za-z0-9._-]*)$/.exec(before);
+      const match = /@([^@\n\u00a0]{0,60})$/.exec(before);
       if (match) {
         for (let i = 0; i < match[0].length; i++) document.execCommand("delete");
       }
     }
-    document.execCommand("insertHTML", false, `<span class="mention">@${escapeHtml(name)}</span>&nbsp;`);
-    setMentionOpen(false);
+    document.execCommand(
+      "insertHTML",
+      false,
+      `<span class="mention" data-user-id="${member.userId}">@${escapeHtml(member.displayName)}</span>&nbsp;`,
+    );
     sync();
+    setMentionOpen(false);
+    setMentionQ("");
+    setMentionIndex(0);
   }
 
   function send() {
@@ -155,9 +167,35 @@ export function Composer({
     if (draftKey) localStorage.removeItem(`draft:${draftKey}`);
   }
 
+  const normalizedMentionQ = mentionQ.trim().toLowerCase();
   const mentionHits = mentionOpen
-    ? members.filter((m) => m.displayName.toLowerCase().includes(mentionQ.toLowerCase())).slice(0, 6)
+    ? members
+        .filter((member) => {
+          if (!normalizedMentionQ) return true;
+          return [member.displayName, member.name, member.email].some((value) =>
+            value.toLowerCase().includes(normalizedMentionQ),
+          );
+        })
+        .sort((a, b) => {
+          const aName = a.displayName.toLowerCase();
+          const bName = b.displayName.toLowerCase();
+          const aPrefix = aName.startsWith(normalizedMentionQ) ? 0 : 1;
+          const bPrefix = bName.startsWith(normalizedMentionQ) ? 0 : 1;
+          if (aPrefix !== bPrefix) return aPrefix - bPrefix;
+          const presenceOrder = { active: 0, away: 1, dnd: 2, offline: 3 };
+          const presence = presenceOrder[a.presence] - presenceOrder[b.presence];
+          return presence || a.displayName.localeCompare(b.displayName);
+        })
+        .slice(0, 8)
     : [];
+  const activeMention = mentionHits[Math.min(mentionIndex, mentionHits.length - 1)] ?? null;
+
+  useEffect(() => {
+    if (!mentionOpen || !activeMention) return;
+    document
+      .getElementById(`${mentionListId}-${activeMention.userId}`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [activeMention, mentionListId, mentionOpen]);
 
   return (
     <div className="composer-wrap">
@@ -170,19 +208,83 @@ export function Composer({
             </button>
           </div>
         ) : null}
+        {formatOpen ? (
+          <div className="composer-format" aria-label="Message formatting">
+            <button
+              className={`c-btn ${marks.bold ? "on" : ""}`}
+              title="Bold ⌘B"
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => exec("bold")}
+            >
+              <Bold />
+            </button>
+            <button
+              className={`c-btn ${marks.italic ? "on" : ""}`}
+              title="Italic ⌘I"
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => exec("italic")}
+            >
+              <Italic />
+            </button>
+            <button
+              className={`c-btn ${marks.strike ? "on" : ""}`}
+              title="Strikethrough ⌘⇧X"
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => exec("strikeThrough")}
+            >
+              <Strike />
+            </button>
+            <span className="composer-divider" aria-hidden="true" />
+            <button
+              className="c-btn"
+              title="Link ⌘⇧U"
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={applyLink}
+            >
+              <Link />
+            </button>
+            <button
+              className={`c-btn ${marks.list ? "on" : ""}`}
+              title="Bulleted list ⌘⇧8"
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => exec("insertUnorderedList")}
+            >
+              <List />
+            </button>
+            <span className="composer-divider" aria-hidden="true" />
+            <button
+              className={`c-btn ${marks.code ? "on" : ""}`}
+              title="Code ⌘⇧C"
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={toggleCode}
+            >
+              <Code />
+            </button>
+          </div>
+        ) : null}
         <div
           ref={ref}
           className={`composer-input ${empty ? "is-empty" : ""}`}
           contentEditable
           role="textbox"
           aria-multiline="true"
+          aria-controls={mentionHits.length > 0 ? mentionListId : undefined}
+          aria-activedescendant={activeMention ? `${mentionListId}-${activeMention.userId}` : undefined}
           data-placeholder={placeholder}
           suppressContentEditableWarning
           onInput={() => {
             onTyping();
             sync();
           }}
-          onKeyUp={sync}
+          onKeyUp={(e) => {
+            if (e.key !== "Escape") sync();
+          }}
           onMouseUp={sync}
           onPaste={(e) => {
             e.preventDefault();
@@ -195,6 +297,29 @@ export function Composer({
           onKeyDown={(e) => {
             const meta = e.metaKey || e.ctrlKey;
             const inList = Boolean(closestTag("li"));
+
+            if (mentionOpen && !e.nativeEvent.isComposing) {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setMentionOpen(false);
+                return;
+              }
+              if (mentionHits.length > 0 && e.key === "ArrowDown") {
+                e.preventDefault();
+                setMentionIndex((index) => (index + 1) % mentionHits.length);
+                return;
+              }
+              if (mentionHits.length > 0 && e.key === "ArrowUp") {
+                e.preventDefault();
+                setMentionIndex((index) => (index - 1 + mentionHits.length) % mentionHits.length);
+                return;
+              }
+              if (mentionHits.length > 0 && (e.key === "Enter" || e.key === "Tab")) {
+                e.preventDefault();
+                insertMention(mentionHits[Math.min(mentionIndex, mentionHits.length - 1)]);
+                return;
+              }
+            }
 
             if (meta && e.key.toLowerCase() === "b") {
               e.preventDefault();
@@ -285,12 +410,45 @@ export function Composer({
           }}
         />
         {mentionHits.length > 0 && (
-          <div className="mention-pop">
-            {mentionHits.map((m) => (
-              <button key={m.userId} type="button" onClick={() => insertMention(m.displayName)}>
-                {m.displayName}
-              </button>
-            ))}
+          <div className="mention-pop" id={mentionListId} role="listbox" aria-label="Mention someone">
+            {mentionHits.map((member, index) => {
+              const selected = index === mentionIndex;
+              const presenceLabel =
+                member.statusText ??
+                (member.presence === "active"
+                  ? "Active"
+                  : member.presence === "dnd"
+                    ? "Do not disturb"
+                    : member.presence[0].toUpperCase() + member.presence.slice(1));
+              return (
+                <button
+                  key={member.userId}
+                  id={`${mentionListId}-${member.userId}`}
+                  className={`mention-option ${selected ? "selected" : ""}`}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setMentionIndex(index)}
+                  onClick={() => insertMention(member)}
+                >
+                  <Avatar as="span" className="mention-avatar" name={member.displayName} image={member.image}>
+                    <i className={`mention-presence ${member.presence}`} />
+                  </Avatar>
+                  <span className="mention-person">
+                    <span className="mention-name">
+                      {member.displayName}
+                      {member.statusEmoji ? ` ${member.statusEmoji}` : ""}
+                    </span>
+                    {member.title ? <span className="mention-title">{member.title}</span> : null}
+                  </span>
+                  <span className="mention-trailing">
+                    <span>{presenceLabel}</span>
+                    {selected ? <kbd>Enter</kbd> : null}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
         <div className="composer-bar">
@@ -304,64 +462,17 @@ export function Composer({
               e.target.value = "";
             }}
           />
-          <button className="c-btn" title="Attach" type="button" onClick={() => fileRef.current?.click()}>
+          <button className="c-btn attach" title="Attach" type="button" onClick={() => fileRef.current?.click()}>
             <Plus />
           </button>
           <button
-            className={`c-btn fmt ${marks.bold ? "on" : ""}`}
-            title="Bold ⌘B"
+            className={`c-btn format-toggle ${formatOpen ? "on" : ""}`}
+            title={formatOpen ? "Hide formatting" : "Show formatting"}
             type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("bold")}
+            onClick={() => setFormatOpen((open) => !open)}
           >
-            B
+            <FormatText />
           </button>
-          <button
-            className={`c-btn ${marks.italic ? "on" : ""}`}
-            title="Italic ⌘I"
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("italic")}
-          >
-            <Italic />
-          </button>
-          <button
-            className={`c-btn ${marks.strike ? "on" : ""}`}
-            title="Strikethrough ⌘⇧X"
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("strikeThrough")}
-          >
-            <Strike />
-          </button>
-          <button
-            className="c-btn"
-            title="Link ⌘⇧U"
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={applyLink}
-          >
-            <Link />
-          </button>
-          <button
-            className={`c-btn ${marks.list ? "on" : ""}`}
-            title="Bulleted list ⌘⇧8"
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("insertUnorderedList")}
-          >
-            <List />
-          </button>
-          <button
-            className={`c-btn ${marks.code ? "on" : ""}`}
-            title="Code ⌘⇧C"
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={toggleCode}
-          >
-            <Code />
-          </button>
-          <div className="grow" />
           <div className="pop-wrap">
             <button className="c-btn" type="button" title="Emoji" onClick={() => setEmojiOpen((v) => !v)}>
               <Emoji />
@@ -386,6 +497,7 @@ export function Composer({
           <button className="c-btn" type="button" title="Mention" onClick={() => insertText("@")}>
             <Mention />
           </button>
+          <div className="grow" />
           <button className={`send ${!empty || file ? "on" : ""}`} onClick={send} disabled={empty && !file}>
             <Send />
           </button>
