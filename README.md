@@ -23,7 +23,7 @@ neon skills -y
 neon mcp -y
 neon link --project-id small-cloud-72606464 --branch production -y
 neon config init   # if neon.ts is missing
-# neon.ts already declares auth + the relay-storage bucket
+# neon.ts already declares the relay-storage bucket
 neon deploy
 pnpm install
 cp apps/api/.env.example apps/api/.env
@@ -108,12 +108,9 @@ Google redirect URI is `{BETTER_AUTH_URL}/api/auth/callback/google`. Desktop OAu
 
 ## Production (Render)
 
-Two services from [`render.yaml`](render.yaml):
+The API auto-deploys on push to `https://relay-api-rsck.onrender.com`. Keep it always-on so WebSockets stay up. Set dashboard env vars including `DATABASE_URL`, Better Auth, Google, and storage. Production Google OAuth needs `BETTER_AUTH_URL=https://relay-api-rsck.onrender.com`.
 
-- **relay-api** — always-on Node web service. Point `DATABASE_URL` at Neon’s pooled URL and set Better Auth + Google + storage variables. Do not use a sleeping instance — WebSockets will die. Set `BETTER_AUTH_URL=https://relay-api-rsck.onrender.com`.
-- **relay-landing** — static landing page from `apps/landing`. The download button points at the latest GitHub Release DMG.
-
-The API `/` route stays the desktop OAuth handoff page. Marketing lives on the static site.
+The API `/` route is the desktop OAuth handoff page. The landing site is the static app in `apps/landing`.
 
 ## macOS release
 

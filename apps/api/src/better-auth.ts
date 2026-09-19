@@ -22,13 +22,21 @@ function lanHosts() {
 }
 
 export function createAuth(db: AppDb) {
-  const apiOrigin = process.env.BETTER_AUTH_URL ?? "http://localhost:3001";
+  const apiOrigin = (process.env.BETTER_AUTH_URL ?? "http://localhost:3001").replace(/\/$/, "");
   const googleId = process.env.GOOGLE_CLIENT_ID?.trim();
   const googleSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
 
   const secret = process.env.BETTER_AUTH_SECRET?.trim();
   if (!secret) {
     throw new Error("BETTER_AUTH_SECRET is required");
+  }
+
+  let publicHost = "";
+  try {
+    const url = new URL(apiOrigin);
+    publicHost = url.host;
+  } catch {
+    publicHost = "";
   }
 
   return betterAuth({
@@ -38,10 +46,11 @@ export function createAuth(db: AppDb) {
         "localhost:8081",
         "127.0.0.1:3001",
         "127.0.0.1:8081",
+        ...(publicHost ? [publicHost, publicHost.split(":")[0]!] : []),
         ...lanHosts(),
         ...(process.env.AUTH_ALLOWED_HOSTS?.split(",").map((h) => h.trim()).filter(Boolean) ?? []),
       ],
-      fallback: process.env.BETTER_AUTH_URL || "http://localhost:3001",
+      fallback: apiOrigin,
     },
     secret,
     database: drizzleAdapter(db, {
