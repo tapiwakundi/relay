@@ -42,11 +42,11 @@ export function createApp(opts: { db: AppDb; hub: Hub }) {
   const app = new Hono<Env>();
 
   const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:5173";
-  const origins = [webOrigin, "http://localhost:5173", "http://localhost:3001"];
+  const origins = [webOrigin, "http://localhost:5173", "http://localhost:3001", "http://localhost:8081"];
 
   app.use("*", async (c, next) => {
     const origin = c.req.header("origin") ?? "";
-    if (origins.includes(origin) || origin.startsWith("exp://") || !origin) {
+    if (origins.includes(origin) || origin.startsWith("exp://") || origin.startsWith("relay://") || !origin) {
       c.header("Access-Control-Allow-Origin", origin || webOrigin);
       c.header("Access-Control-Allow-Credentials", "true");
       c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, set-auth-token");

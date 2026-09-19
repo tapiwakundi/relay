@@ -5,17 +5,20 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "relay",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.relay.mobile",
       "infoPlist": {
-        "UIBackgroundModes": ["audio", "voip", "remote-notification"]
+        "UIBackgroundModes": ["audio", "voip", "remote-notification"],
+        "NSPhotoLibraryUsageDescription": "Relay uses your photos for profile pictures and workspace icons.",
+        "NSCameraUsageDescription": "Relay uses the camera so you can take a profile photo."
       }
     },
     "android": {
       "package": "app.relay.mobile",
-      "permissions": ["RECORD_AUDIO", "CAMERA", "POST_NOTIFICATIONS"]
+      "permissions": ["RECORD_AUDIO", "CAMERA", "POST_NOTIFICATIONS", "READ_MEDIA_IMAGES"]
     },
     "plugins": [
       [
@@ -24,7 +27,15 @@
           "sounds": []
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Relay uses your photos for profile pictures and workspace icons.",
+          "cameraPermission": "Relay uses the camera so you can take a profile photo."
+        }
+      ]
     ]
   }
 }
