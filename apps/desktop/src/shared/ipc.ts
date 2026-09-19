@@ -25,6 +25,11 @@ export const relayChannels = {
   invite: "relay:invite",
   pendingInvites: "relay:pending-invites",
   prepareMedia: "relay:prepare-media",
+  getUpdateState: "relay:update-state-get",
+  checkForUpdates: "relay:update-check",
+  downloadUpdate: "relay:update-download",
+  installUpdate: "relay:update-install",
+  updateState: "relay:update-state",
 } as const;
 
 export type FormPart =
@@ -52,6 +57,22 @@ export type MediaAccess = {
   camera: boolean;
 };
 
+export type UpdateState = {
+  status:
+    | "idle"
+    | "checking"
+    | "up-to-date"
+    | "available"
+    | "downloading"
+    | "downloaded"
+    | "error"
+    | "disabled";
+  currentVersion: string;
+  version?: string;
+  percent?: number;
+  message?: string;
+};
+
 export interface RelayDesktop {
   api(request: ApiRequest): Promise<ApiResponse>;
   signInEmail(email: string, password: string): Promise<AuthResult>;
@@ -69,4 +90,9 @@ export interface RelayDesktop {
   onInvite(callback: (token: string) => void): () => void;
   pendingInvites(): Promise<string[]>;
   prepareMedia(): Promise<MediaAccess>;
+  getUpdateState(): Promise<UpdateState>;
+  checkForUpdates(): Promise<UpdateState>;
+  downloadUpdate(): Promise<void>;
+  installUpdate(): Promise<void>;
+  onUpdateState(callback: (state: UpdateState) => void): () => void;
 }

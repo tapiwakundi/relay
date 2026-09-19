@@ -6,6 +6,8 @@ cd "$ROOT"
 
 PRODUCTION_API_URL="${RELAY_API_URL:-https://relay-api-rsck.onrender.com}"
 DMG="apps/desktop/release/Relay-mac-arm64.dmg"
+ZIP="apps/desktop/release/Relay-mac-arm64.zip"
+UPDATE_YML="apps/desktop/release/latest-mac.yml"
 APP="apps/desktop/release/mac-arm64/Relay.app"
 VERSION="$(node -p "require('./apps/desktop/package.json').version")"
 TAG="v${VERSION}"
@@ -71,6 +73,9 @@ pnpm --filter @relay/desktop dist
 
 test -d "$APP"
 test -f "$DMG"
+test -f "$ZIP"
+test -f "$ZIP.blockmap"
+test -f "$UPDATE_YML"
 
 echo "Verifying signature and notarization…"
 # Gatekeeper checks the app. electron-builder leaves the DMG unsigned on purpose.
@@ -78,22 +83,29 @@ codesign --verify --deep --strict --verbose=2 "$APP"
 spctl --assess --type execute --verbose "$APP"
 xcrun stapler validate "$APP"
 shasum -a 256 "$DMG" | tee "$DMG.sha256"
+shasum -a 256 "$ZIP" | tee "$ZIP.sha256"
+
+ASSETS=("$DMG" "$DMG.sha256" "$ZIP" "$ZIP.sha256" "$ZIP.blockmap" "$UPDATE_YML")
+if [[ -f "$DMG.blockmap" ]]; then
+  ASSETS+=("$DMG.blockmap")
+fi
 
 NOTES="$(printf '%s\n' \
   "Relay ${VERSION} for Apple Silicon." \
   "" \
   "Download: https://github.com/tapiwakundi/relay/releases/latest/download/Relay-mac-arm64.dmg" \
+  "Existing installations can update from Help → Check for updates." \
   "" \
   "Requires macOS 12+ on Apple Silicon. The app talks to ${PRODUCTION_API_URL}.")"
 
 TARGET="$(git rev-parse HEAD)"
 if gh release view "$TAG" >/dev/null 2>&1; then
   echo "Updating existing release ${TAG}…"
-  gh release upload "$TAG" "$DMG" "$DMG.sha256" --clobber
+  gh release upload "$TAG" "${ASSETS[@]}" --clobber
   gh release edit "$TAG" --title "Relay ${VERSION}" --notes "$NOTES"
 else
   echo "Creating GitHub release ${TAG}…"
-  gh release create "$TAG" "$DMG" "$DMG.sha256" \
+  gh release create "$TAG" "${ASSETS[@]}" \
     --title "Relay ${VERSION}" \
     --notes "$NOTES" \
     --target "$TARGET"
@@ -102,3 +114,4 @@ fi
 echo "Published ${TAG}:"
 echo "  https://github.com/tapiwakundi/relay/releases/tag/${TAG}"
 echo "  https://github.com/tapiwakundi/relay/releases/latest/download/Relay-mac-arm64.dmg"
+echo "  Automatic update metadata: https://github.com/tapiwakundi/relay/releases/latest/download/latest-mac.yml"

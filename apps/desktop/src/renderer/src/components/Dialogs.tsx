@@ -1,5 +1,6 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Channel, Invite, Member, Workspace } from "@relay/shared";
+import type { UpdateState } from "../../../shared/ipc";
 import { WorkspaceGlyph } from "./WorkspaceGlyph";
 
 export function FormDialog({
@@ -143,8 +144,61 @@ export function NewMessageDialog({
 }
 
 export function HelpDialog({ onClose }: { onClose: () => void }) {
+  const [update, setUpdate] = useState<UpdateState | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void window.relayDesktop.getUpdateState().then((next) => {
+      if (active) setUpdate(next);
+    });
+    const stop = window.relayDesktop.onUpdateState(setUpdate);
+    return () => {
+      active = false;
+      stop();
+    };
+  }, []);
+
+  async function updateAction() {
+    if (!update) return;
+    if (update.status === "available") {
+      await window.relayDesktop.downloadUpdate();
+      return;
+    }
+    if (update.status === "downloaded") {
+      await window.relayDesktop.installUpdate();
+      return;
+    }
+    setUpdate(await window.relayDesktop.checkForUpdates());
+  }
+
+  const checking = update?.status === "checking";
+  const downloading = update?.status === "downloading";
+  const disabled = !update || update.status === "disabled" || checking || downloading;
+
   return (
-    <FormDialog title="Keyboard shortcuts" onClose={onClose}>
+    <FormDialog title="Help & updates" onClose={onClose}>
+      <section className="help-update">
+        <div>
+          <h4>Relay updates</h4>
+          <p>{updateMessage(update)}</p>
+        </div>
+        <button className="btn-primary update-action" type="button" disabled={disabled} onClick={() => void updateAction()}>
+          {updateButtonLabel(update)}
+        </button>
+        {downloading ? (
+          <div
+            className="update-progress"
+            role="progressbar"
+            aria-label="Downloading update"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(update.percent ?? 0)}
+          >
+            <span style={{ width: `${update.percent ?? 0}%` }} />
+          </div>
+        ) : null}
+      </section>
+      <h4 className="help-subhead">Keyboard shortcuts</h4>
       <ul className="help-list">
         <li>
           <kbd>⌘</kbd>
@@ -171,6 +225,46 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
       </ul>
     </FormDialog>
   );
+}
+
+function updateMessage(update: UpdateState | null) {
+  if (!update) return "Loading version information…";
+  switch (update.status) {
+    case "checking":
+      return `Checking for updates from Relay ${update.currentVersion}…`;
+    case "up-to-date":
+      return `Relay ${update.currentVersion} is up to date.`;
+    case "available":
+      return `Relay ${update.version} is ready to download. You’re using ${update.currentVersion}.`;
+    case "downloading":
+      return `Downloading Relay ${update.version}… ${Math.round(update.percent ?? 0)}%`;
+    case "downloaded":
+      return `Relay ${update.version} is ready. Restart Relay to finish updating.`;
+    case "error":
+      return update.message || "Couldn’t check for updates. Try again.";
+    case "disabled":
+      return update.message || `Relay ${update.currentVersion}`;
+    default:
+      return `You’re using Relay ${update.currentVersion}.`;
+  }
+}
+
+function updateButtonLabel(update: UpdateState | null) {
+  if (!update) return "Loading…";
+  switch (update.status) {
+    case "checking":
+      return "Checking…";
+    case "available":
+      return `Download ${update.version}`;
+    case "downloading":
+      return `Downloading ${Math.round(update.percent ?? 0)}%`;
+    case "downloaded":
+      return "Restart and update";
+    case "disabled":
+      return "Installed app only";
+    default:
+      return "Check for updates";
+  }
 }
 
 export function MembersDialog({

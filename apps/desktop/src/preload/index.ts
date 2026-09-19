@@ -7,6 +7,7 @@ import {
   type AuthResult,
   type MediaAccess,
   type RelayDesktop,
+  type UpdateState,
 } from "../shared/ipc";
 
 function subscribe<T>(channel: string, callback: (payload: T) => void) {
@@ -45,6 +46,11 @@ const relayDesktop = {
   onInvite: (callback: (token: string) => void) => subscribe(relayChannels.invite, callback),
   pendingInvites: () => ipcRenderer.invoke(relayChannels.pendingInvites) as Promise<string[]>,
   prepareMedia: () => ipcRenderer.invoke(relayChannels.prepareMedia) as Promise<MediaAccess>,
+  getUpdateState: () => ipcRenderer.invoke(relayChannels.getUpdateState) as Promise<UpdateState>,
+  checkForUpdates: () => ipcRenderer.invoke(relayChannels.checkForUpdates) as Promise<UpdateState>,
+  downloadUpdate: () => ipcRenderer.invoke(relayChannels.downloadUpdate) as Promise<void>,
+  installUpdate: () => ipcRenderer.invoke(relayChannels.installUpdate) as Promise<void>,
+  onUpdateState: (callback: (state: UpdateState) => void) => subscribe(relayChannels.updateState, callback),
 };
 
 contextBridge.exposeInMainWorld("relayDesktop", relayDesktop satisfies RelayDesktop);

@@ -12,11 +12,19 @@ extraMetadata:
 asar: true
 npmRebuild: false
 artifactName: Relay-mac-${arch}.${ext}
+publish:
+  provider: github
+  owner: tapiwakundi
+  repo: relay
+  releaseType: release
 mac:
   category: public.app-category.social-networking
   icon: packaging/icon.icns
   target:
     - target: dmg
+      arch:
+        - arm64
+    - target: zip
       arch:
         - arm64
   hardenedRuntime: true
