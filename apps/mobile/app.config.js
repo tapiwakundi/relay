@@ -1,8 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-function loadRootPublicEnv() {
-  const envPath = path.resolve(__dirname, "../../.env");
+function loadEnvFile(envPath, { overwrite = false } = {}) {
   if (!fs.existsSync(envPath)) return;
   for (const raw of fs.readFileSync(envPath, "utf8").split("\n")) {
     const line = raw.trim();
@@ -17,10 +16,12 @@ function loadRootPublicEnv() {
     ) {
       value = value.slice(1, -1);
     }
-    if (key.startsWith("EXPO_PUBLIC_") && !process.env[key]) process.env[key] = value;
+    if (!key.startsWith("EXPO_PUBLIC_")) continue;
+    if (overwrite || !process.env[key]) process.env[key] = value;
   }
 }
 
-loadRootPublicEnv();
+loadEnvFile(path.resolve(__dirname, "../../.env"));
+loadEnvFile(path.resolve(__dirname, ".env"), { overwrite: true });
 
 module.exports = require("./app.json");

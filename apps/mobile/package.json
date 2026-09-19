@@ -4,9 +4,12 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "start": "expo start",
-    "ios": "expo start --ios",
-    "android": "expo start --android"
+    "setup:env": "node ./scripts/setup-env.mjs",
+    "start": "expo start --dev-client",
+    "ios": "pnpm setup:env && expo run:ios --device 00008140-001C50401A9B001C",
+    "ios:sim": "pnpm setup:env && expo run:ios",
+    "android": "pnpm setup:env && expo run:android --device",
+    "prebuild": "expo prebuild"
   },
   "dependencies": {
     "@neondatabase/auth": "0.5.0-beta",
@@ -18,6 +21,7 @@
     "expo": "~54.0.37",
     "expo-blur": "~15.0.8",
     "expo-constants": "~18.0.14",
+    "expo-dev-client": "~6.0.21",
     "expo-document-picker": "~14.0.8",
     "expo-glass-effect": "~0.1.10",
     "expo-haptics": "~15.0.8",
