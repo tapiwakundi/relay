@@ -121,44 +121,28 @@ Public download:
 
 `https://github.com/tapiwakundi/relay/releases/latest/download/Relay-mac-arm64.dmg`
 
-### GitHub Actions secrets
-
-| Secret | Value |
-|---|---|
-| `CSC_LINK` | Base64-encoded Developer ID Application `.p12` |
-| `CSC_KEY_PASSWORD` | Password for that `.p12` |
-| `APPLE_API_KEY_BASE64` | Base64-encoded App Store Connect `.p8` |
-| `APPLE_API_KEY_ID` | 10-character key ID |
-| `APPLE_API_ISSUER` | Issuer UUID |
-
-Encode files with `base64 < DeveloperID.p12 | pbcopy` (no line wraps).
-
-### First public build
+Build and publish from your Mac. The tag comes from [`apps/desktop/package.json`](apps/desktop/package.json) (`0.1.0` → `v0.1.0`).
 
 1. Confirm Google Cloud has the production redirect URI above.
 2. Confirm `https://relay-api-rsck.onrender.com/api/health` returns `{"ok":true,...}`.
-3. Add the GitHub secrets.
-4. Deploy the Render static site from `render.yaml`.
-5. Keep [`apps/desktop/package.json`](apps/desktop/package.json) version in sync with the tag.
-6. Push a version tag:
+3. Put your Developer ID Application certificate in Keychain, or set `CSC_LINK` / `CSC_KEY_PASSWORD` for a `.p12`.
+4. Export an App Store Connect API key and:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+export APPLE_API_KEY=/path/to/AuthKey_XXXXXXXXXX.p8
+export APPLE_API_KEY_ID=XXXXXXXXXX
+export APPLE_API_ISSUER=your-issuer-uuid
 ```
 
-7. The `Release desktop` workflow signs, notarizes, and publishes `Relay-mac-arm64.dmg`.
-8. Open the landing page and confirm the Download button follows that latest-release URL.
-
-Local unsigned/ad-hoc packaging still needs `RELAY_API_URL` in `apps/desktop/.env`, for example:
+5. Commit a clean tree, then:
 
 ```bash
-# apps/desktop/.env
-RELAY_API_URL=https://relay-api-rsck.onrender.com
-pnpm --filter @relay/desktop dist
+pnpm release:desktop
 ```
 
-Without Apple signing secrets, notarization is skipped. Do not distribute that DMG publicly.
+That signs, notarizes, pushes the current branch, and publishes `Relay-mac-arm64.dmg` to GitHub Releases. The landing-page Download button uses that latest-release URL.
+
+Local unsigned packaging still needs `RELAY_API_URL` in `apps/desktop/.env`. Do not distribute an unsigned DMG publicly.
 
 ### Smoke-test a signed install
 

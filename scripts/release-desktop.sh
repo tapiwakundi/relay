@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+PRODUCTION_API_URL="${RELAY_API_URL:-https://relay-api-rsck.onrender.com}"
+DMG="apps/desktop/release/Relay-mac-arm64.dmg"
+APP="apps/desktop/release/mac-arm64/Relay.app"
+VERSION="$(node -p "require('./apps/desktop/package.json').version")"
+TAG="v${VERSION}"
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  echo "Desktop releases must be built on macOS."
+  exit 1
+fi
+
+for cmd in pnpm gh codesign spctl xcrun curl git node; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "Missing required command: $cmd"
+    exit 1
+  fi
+done
+
+if ! gh auth status >/dev/null 2>&1; then
+  echo "GitHub CLI is not logged in. Run: gh auth login"
+  exit 1
+fi
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "Working tree is dirty. Commit or stash before releasing."
+  git status --short
+  exit 1
+fi
+
+if [[ -z "${APPLE_API_KEY:-}" || -z "${APPLE_API_KEY_ID:-}" || -z "${APPLE_API_ISSUER:-}" ]]; then
+  echo "Set notarization credentials before releasing:"
+  echo "  export APPLE_API_KEY=/path/to/AuthKey_${APPLE_API_KEY_ID:-XXXXXXXXXX}.p8"
+  echo "  export APPLE_API_KEY_ID=XXXXXXXXXX"
+  echo "  export APPLE_API_ISSUER=your-issuer-uuid"
+  echo "Developer ID can live in Keychain. If you use a .p12 instead, also set CSC_LINK and CSC_KEY_PASSWORD."
+  exit 1
+fi
+
+if [[ ! -f "$APPLE_API_KEY" ]]; then
+  echo "APPLE_API_KEY is not a file: $APPLE_API_KEY"
+  exit 1
+fi
+
+echo "Checking production API…"
+healthy=0
+for attempt in 1 2 3 4 5 6; do
+  if curl -fsS "$PRODUCTION_API_URL/api/health" | grep -q '"ok":true'; then
+    healthy=1
+    break
+  fi
+  echo "API health check failed (attempt $attempt); retrying…"
+  sleep 10
+done
+if [[ "$healthy" -ne 1 ]]; then
+  echo "Production API at $PRODUCTION_API_URL/api/health is not healthy."
+  exit 1
+fi
+
+echo "Pushing $(git rev-parse --abbrev-ref HEAD) to origin…"
+git push -u origin HEAD
+
+echo "Building, signing, and notarizing Relay ${VERSION}…"
+export RELAY_API_URL="$PRODUCTION_API_URL"
+pnpm --filter @relay/desktop dist
+
+test -d "$APP"
+test -f "$DMG"
+
+echo "Verifying signature and notarization…"
+codesign --verify --deep --strict --verbose=2 "$APP"
+spctl --assess --type install --verbose "$APP"
+spctl --assess --type install --verbose "$DMG"
+xcrun stapler validate "$APP"
+xcrun stapler validate "$DMG"
+shasum -a 256 "$DMG" | tee "$DMG.sha256"
+
+NOTES="$(printf '%s\n' \
+  "Relay ${VERSION} for Apple Silicon." \
+  "" \
+  "Download: https://github.com/tapiwakundi/relay/releases/latest/download/Relay-mac-arm64.dmg" \
+  "" \
+  "Requires macOS 12+ on Apple Silicon. The app talks to ${PRODUCTION_API_URL}.")"
+
+TARGET="$(git rev-parse HEAD)"
+if gh release view "$TAG" >/dev/null 2>&1; then
+  echo "Updating existing release ${TAG}…"
+  gh release upload "$TAG" "$DMG" "$DMG.sha256" --clobber
+  gh release edit "$TAG" --title "Relay ${VERSION}" --notes "$NOTES"
+else
+  echo "Creating GitHub release ${TAG}…"
+  gh release create "$TAG" "$DMG" "$DMG.sha256" \
+    --title "Relay ${VERSION}" \
+    --notes "$NOTES" \
+    --target "$TARGET"
+fi
+
+echo "Published ${TAG}:"
+echo "  https://github.com/tapiwakundi/relay/releases/tag/${TAG}"
+echo "  https://github.com/tapiwakundi/relay/releases/latest/download/Relay-mac-arm64.dmg"

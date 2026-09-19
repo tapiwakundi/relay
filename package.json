@@ -12,6 +12,7 @@
     "dev:mobile:sim": "pnpm --filter @relay/mobile ios:sim",
     "build": "pnpm --filter @relay/shared build && pnpm --filter @relay/api build && pnpm --filter @relay/desktop build && pnpm --filter @relay/landing build",
     "build:landing": "pnpm --filter @relay/landing build",
+    "release:desktop": "bash scripts/release-desktop.sh",
     "db:generate": "pnpm --filter @relay/api db:generate",
     "db:migrate": "pnpm --filter @relay/api db:migrate",
     "db:push": "pnpm --filter @relay/api db:push"
