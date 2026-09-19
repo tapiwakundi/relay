@@ -1,11 +1,17 @@
 import { StyleSheet, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { colors } from "./theme";
 
 export function Wallpaper() {
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <LinearGradient colors={[...colors.wallpaper]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            experimental_backgroundImage: `linear-gradient(160deg, ${colors.wallpaper[0]}, ${colors.wallpaper[1]}, ${colors.wallpaper[2]})`,
+          },
+        ]}
+      />
       <View style={[styles.orb, styles.a]} />
       <View style={[styles.orb, styles.b]} />
       <View style={[styles.orb, styles.c]} />

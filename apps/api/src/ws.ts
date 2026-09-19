@@ -3,6 +3,7 @@ import type { WebSocket, WebSocketServer } from "ws";
 import { and, eq } from "drizzle-orm";
 import type { WsClientEvent } from "@relay/shared";
 import { getAuthUser } from "./auth.js";
+import type { Auth } from "./better-auth.js";
 import {
   huddle,
   huddleParticipant,
@@ -27,14 +28,17 @@ export function attachSockets(opts: {
   wss: WebSocketServer;
   db: AppDb;
   hub: Hub;
+  auth: Auth;
 }) {
-  const { wss, db, hub } = opts;
+  const { wss, db, hub, auth } = opts;
 
   wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
     const token = readToken(req);
     const headers = new Headers();
     if (token) headers.set("authorization", `Bearer ${token}`);
-    const user = await getAuthUser(headers);
+    if (req.headers.host) headers.set("host", String(req.headers.host));
+    if (req.headers.cookie) headers.set("cookie", String(req.headers.cookie));
+    const user = await getAuthUser(auth, headers);
     if (!user) {
       ws.close(4401, "unauthorized");
       return;

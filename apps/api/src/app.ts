@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
 import { getAuthUser } from "./auth.js";
+import type { Auth } from "./better-auth.js";
 import {
   channel,
   channelMember,
@@ -37,19 +38,37 @@ type Env = {
   };
 };
 
-export function createApp(opts: { db: AppDb; hub: Hub }) {
-  const { db, hub } = opts;
+export function createApp(opts: { db: AppDb; hub: Hub; auth: Auth }) {
+  const { db, hub, auth } = opts;
   const app = new Hono<Env>();
 
   const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:5173";
   const origins = [webOrigin, "http://localhost:5173", "http://localhost:3001", "http://localhost:8081"];
 
+  function originAllowed(origin: string) {
+    if (!origin) return true;
+    if (origins.includes(origin)) return true;
+    if (origin.startsWith("exp://") || origin.startsWith("relay://") || origin.startsWith("exp+relay://")) return true;
+    try {
+      const { hostname } = new URL(origin);
+      if (hostname === "localhost" || hostname === "127.0.0.1") return true;
+      const parts = hostname.split(".").map(Number);
+      if (parts.length === 4 && parts.every((n) => Number.isInteger(n) && n >= 0 && n <= 255)) {
+        const [a, b] = parts;
+        if (a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31)) return true;
+      }
+    } catch {
+      return false;
+    }
+    return false;
+  }
+
   app.use("*", async (c, next) => {
     const origin = c.req.header("origin") ?? "";
-    if (origins.includes(origin) || origin.startsWith("exp://") || origin.startsWith("relay://") || !origin) {
+    if (originAllowed(origin)) {
       c.header("Access-Control-Allow-Origin", origin || webOrigin);
       c.header("Access-Control-Allow-Credentials", "true");
-      c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, set-auth-token");
+      c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, set-auth-token, expo-origin");
       c.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
       c.header("Access-Control-Expose-Headers", "set-auth-token");
     }
@@ -57,19 +76,20 @@ export function createApp(opts: { db: AppDb; hub: Hub }) {
     return next();
   });
 
+  app.all("/api/auth/*", (c) => auth.handler(c.req.raw));
+
   app.get("/api/health", (c) =>
     c.json({
       ok: true,
-      google: Boolean(process.env.GOOGLE_CLIENT_ID),
+      google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
       livekit: Boolean(process.env.LIVEKIT_URL),
-      neonAuth: Boolean(process.env.NEON_AUTH_JWKS_URL),
       storage: Boolean(process.env.AWS_ENDPOINT_URL_S3),
     }),
   );
 
   const authed = new Hono<Env>();
   authed.use("*", async (c, next) => {
-    const u = await getAuthUser(c.req.raw.headers);
+    const u = await getAuthUser(auth, c.req.raw.headers);
     if (!u) return c.json({ error: "Unauthorized" }, 401);
     c.set("userId", u.id);
     c.set("userName", u.name);

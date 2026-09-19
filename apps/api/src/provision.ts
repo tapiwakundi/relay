@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { channel, channelMember, invite, user, workspace, workspaceMember } from "./db/schema.js";
 import type { AppDb } from "./queries.js";
 
@@ -10,7 +10,7 @@ export type AuthPerson = {
 };
 
 export async function provisionAuthedUser(db: AppDb, person: AuthPerson) {
-  const image = (await resolveAuthImage(db, person)) ?? person.image;
+  const image = person.image ? normalizePhoto(person.image) : person.image;
   const stored = await upsertUser(db, { ...person, image });
 
   const [membership] = await db
@@ -133,52 +133,6 @@ export async function joinWorkspace(db: AppDb, workspaceId: string, person: Auth
       channelId: c.id,
       userId: person.id,
     });
-  }
-}
-
-async function resolveAuthImage(db: AppDb, person: AuthPerson): Promise<string | null> {
-  if (person.image) return normalizePhoto(person.image);
-  try {
-    const authRows = await db.execute(
-      sql`select image from neon_auth."user" where id = ${person.id}::uuid limit 1`,
-    );
-    const fromAuth = firstString(authRows, "image");
-    if (fromAuth) return normalizePhoto(fromAuth);
-
-    const tokenRows = await db.execute(
-      sql`select "idToken" from neon_auth.account
-          where "userId" = ${person.id}::uuid
-            and "providerId" in ('google', 'google.com')
-          limit 1`,
-    );
-    const fromGoogle = pictureFromJwt(firstString(tokenRows, "idToken"));
-    if (fromGoogle) return normalizePhoto(fromGoogle);
-  } catch {
-    /* local PGlite has no neon_auth schema */
-  }
-  return null;
-}
-
-function firstString(result: unknown, key: string): string | null {
-  const rows = Array.isArray(result)
-    ? result
-    : ((result as { rows?: unknown[] } | null)?.rows ?? []);
-  const row = rows[0] as Record<string, unknown> | undefined;
-  const value = row?.[key] ?? row?.[key.toLowerCase()];
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-function pictureFromJwt(token: string | null): string | null {
-  if (!token || !token.includes(".")) return null;
-  try {
-    const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString()) as {
-      picture?: unknown;
-      image?: unknown;
-    };
-    const value = payload.picture ?? payload.image;
-    return typeof value === "string" && /^https?:\/\//i.test(value) ? value : null;
-  } catch {
-    return null;
   }
 }
 

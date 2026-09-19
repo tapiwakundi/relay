@@ -130,7 +130,7 @@ export function LoginScreen() {
           </button>
         </form>
         <div className="login-foot">
-          Sign-in is Neon Auth. Google uses Neon’s shared development OAuth until you add your own app.
+          Email and password work now. Google needs your OAuth client IDs in .env.
         </div>
       </div>
     </div>

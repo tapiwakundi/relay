@@ -1,10 +1,8 @@
-import { createAuthClient } from "@neondatabase/auth";
+import { createAuthClient } from "better-auth/react";
+import { expoClient } from "@better-auth/expo/client";
 import Constants from "expo-constants";
-import * as Linking from "expo-linking";
-import * as WebBrowser from "expo-web-browser";
+import * as SecureStore from "expo-secure-store";
 import { notifySignedOut } from "./session";
-
-WebBrowser.maybeCompleteAuthSession();
 
 export function apiOrigin() {
   const env = process.env.EXPO_PUBLIC_API_URL;
@@ -19,35 +17,59 @@ export function wsOrigin() {
   return apiOrigin().replace(/^http/, "ws") + "/ws";
 }
 
-const AUTH_URL = process.env.EXPO_PUBLIC_NEON_AUTH_URL;
-
-export const authClient = AUTH_URL ? createAuthClient(AUTH_URL) : null;
+export const authClient = createAuthClient({
+  baseURL: apiOrigin(),
+  plugins: [
+    expoClient({
+      scheme: "relay",
+      storagePrefix: "relay",
+      storage: SecureStore,
+    }),
+  ],
+});
 
 function tokenFrom(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
   const data = payload as { token?: unknown; session?: { token?: unknown } };
-  if (typeof data.token === "string" && data.token.includes(".")) return data.token;
-  if (typeof data.session?.token === "string" && data.session.token.includes(".")) return data.session.token;
+  if (typeof data.token === "string" && data.token) return data.token;
+  if (typeof data.session?.token === "string" && data.session.token) return data.session.token;
+  return null;
+}
+
+function sessionTokenFromCookie(cookie: string): string | null {
+  for (const part of cookie.split(";")) {
+    const separator = part.indexOf("=");
+    if (separator < 0) continue;
+    const name = part.slice(0, separator).trim();
+    if (!name.endsWith(".session_token")) continue;
+    const value = part.slice(separator + 1).trim();
+    if (!value) return null;
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
   return null;
 }
 
 export async function getAccessToken() {
-  if (!authClient) return null;
-  const { data, error } = await authClient.token();
-  const fromToken = tokenFrom(data);
-  if (!error && fromToken) return fromToken;
-  const session = await authClient.getSession();
-  return tokenFrom(session.data);
+  const { data, error } = await authClient.getSession();
+  if (error) return null;
+  if (!data?.user) return null;
+  return tokenFrom(data) ?? sessionTokenFromCookie(await authClient.getCookie());
 }
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getAccessToken();
+  const cookie = await authClient.getCookie();
   const headers = new Headers(init?.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (cookie) headers.set("Cookie", cookie);
   if (!(init?.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const res = await fetch(`${apiOrigin()}${path}`, { ...init, headers });
+  const res = await fetch(`${apiOrigin()}${path}`, { ...init, headers, credentials: "omit" });
   if (res.status === 401) {
     notifySignedOut();
     throw new Error("unauthorized");
@@ -61,35 +83,37 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function signInEmail(email: string, password: string) {
-  if (!authClient) throw new Error("EXPO_PUBLIC_NEON_AUTH_URL is missing");
   return authClient.signIn.email({ email, password });
 }
 
 export async function signUpEmail(name: string, email: string, password: string) {
-  if (!authClient) throw new Error("EXPO_PUBLIC_NEON_AUTH_URL is missing");
   return authClient.signUp.email({ name, email, password });
 }
 
 export async function signInGoogle() {
-  if (!authClient) throw new Error("EXPO_PUBLIC_NEON_AUTH_URL is missing");
-  const callbackURL = Linking.createURL("/");
-  const result = await authClient.signIn.social({
+  // Google rejects private-IP redirect URIs (`192.168.x.x`) with
+  // "device_id and device_name are required". The Cloud Console client is a
+  // Web application registered at localhost, so tell Better Auth to build
+  // Google's callback as http://localhost:3001/api/auth/callback/google.
+  // iOS Simulator can reach the Mac on localhost; a physical phone cannot
+  // (use email sign-in, or a public tunnel, for on-device Google).
+  return authClient.signIn.social({
     provider: "google",
-    callbackURL,
+    callbackURL: "/",
+    fetchOptions: {
+      headers: {
+        "x-forwarded-host": "localhost:3001",
+        "x-forwarded-proto": "http",
+      },
+    },
   });
-  const url = (result.data as { url?: string } | null)?.url;
-  if (url) {
-    await WebBrowser.openAuthSessionAsync(url, callbackURL);
-  }
-  return result;
 }
 
 export async function signOut() {
-  await authClient?.signOut();
+  await authClient.signOut();
 }
 
 export async function getSession() {
-  if (!authClient) return null;
   const { data, error } = await authClient.getSession();
   if (error || !data?.user) return null;
   return data;

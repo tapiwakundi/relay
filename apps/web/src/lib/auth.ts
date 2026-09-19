@@ -1,41 +1,44 @@
-import { createAuthClient } from "@neondatabase/auth";
-import { BetterAuthReactAdapter } from "@neondatabase/auth/react/adapters";
+import { createAuthClient } from "better-auth/react";
 
-const authUrl = import.meta.env.VITE_NEON_AUTH_URL as string | undefined;
+const apiBase = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "");
 
-export const authClient = authUrl
-  ? createAuthClient(authUrl, {
-      adapter: BetterAuthReactAdapter(),
-    })
-  : null;
+export const authClient = createAuthClient({
+  ...(apiBase ? { baseURL: apiBase } : {}),
+  fetchOptions: {
+    credentials: "include",
+    auth: {
+      type: "Bearer",
+      token: () => (typeof localStorage === "undefined" ? undefined : localStorage.getItem("relay.bearer") || undefined),
+    },
+    onSuccess: (ctx) => {
+      const token = ctx.response.headers.get("set-auth-token");
+      if (token) localStorage.setItem("relay.bearer", token);
+    },
+  },
+});
 
 function tokenFrom(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
-  const data = payload as {
-    token?: unknown;
-    session?: { token?: unknown };
-  };
-  if (typeof data.token === "string" && data.token.includes(".")) return data.token;
-  if (typeof data.session?.token === "string" && data.session.token.includes(".")) {
-    return data.session.token;
-  }
-  return null;
+  const data = payload as { token?: unknown; session?: { token?: unknown } };
+  if (typeof data.token === "string" && data.token) return data.token;
+  if (typeof data.session?.token === "string" && data.session.token) return data.session.token;
+  return typeof localStorage === "undefined" ? null : localStorage.getItem("relay.bearer");
 }
 
 export async function getAccessToken() {
-  if (!authClient) return null;
-  const { data, error } = await authClient.token();
-  const fromToken = tokenFrom(data);
-  if (!error && fromToken) return fromToken;
-
-  const session = await authClient.getSession();
-  return tokenFrom(session.data);
+  const { data, error } = await authClient.getSession();
+  if (!error) {
+    const fromSession = tokenFrom(data);
+    if (fromSession) return fromSession;
+  }
+  return typeof localStorage === "undefined" ? null : localStorage.getItem("relay.bearer");
 }
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getAccessToken();
   const res = await fetch(path, {
     ...init,
+    credentials: "include",
     headers: {
       ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -48,24 +51,20 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function getSession() {
-  if (!authClient) return null;
   const { data, error } = await authClient.getSession();
   if (error || !data?.user) return null;
   return data;
 }
 
 export async function signInEmail(email: string, password: string) {
-  if (!authClient) throw new Error("Neon Auth URL is missing");
   return authClient.signIn.email({ email, password });
 }
 
 export async function signUpEmail(name: string, email: string, password: string) {
-  if (!authClient) throw new Error("Neon Auth URL is missing");
   return authClient.signUp.email({ name, email, password });
 }
 
 export async function signInGoogle() {
-  if (!authClient) throw new Error("Neon Auth URL is missing");
   return authClient.signIn.social({
     provider: "google",
     callbackURL: window.location.origin + "/",
@@ -73,5 +72,6 @@ export async function signInGoogle() {
 }
 
 export async function signOut() {
-  await authClient?.signOut();
+  localStorage.removeItem("relay.bearer");
+  await authClient.signOut();
 }

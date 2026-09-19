@@ -23,7 +23,10 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "electron"
-    ]
+    ],
+    "patchedDependencies": {
+      "@expo/cli@54.0.27": "patches/@expo__cli@54.0.27.patch"
+    }
   },
   "dependencies": {
     "@neon/config": "^1.7.2",
