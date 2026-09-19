@@ -9,16 +9,25 @@ import { APP_ID, AUTH_SCHEME } from "../shared/ipc";
 app.setName("Relay");
 app.setAppUserModelId(APP_ID);
 
-for (const path of [
-  resolve(process.cwd(), ".env"),
-  resolve(process.cwd(), ".env.local"),
-  resolve(process.cwd(), "../../.env"),
-  resolve(process.cwd(), "../../.env.local"),
-]) {
-  config({ path, override: false });
+if (!app.isPackaged) {
+  for (const path of [
+    resolve(process.cwd(), ".env"),
+    resolve(process.cwd(), ".env.local"),
+    resolve(process.cwd(), "../../.env"),
+    resolve(process.cwd(), "../../.env.local"),
+  ]) {
+    config({ path, override: false });
+  }
 }
 
 function apiOrigin() {
+  if (app.isPackaged) {
+    const packaged = RELAY_PACKAGED_API_URL.replace(/\/$/, "");
+    if (!packaged) {
+      throw new Error("This Relay build is missing RELAY_API_URL.");
+    }
+    return packaged;
+  }
   const configured = process.env.RELAY_API_URL || process.env.BETTER_AUTH_URL || "http://localhost:3001";
   return configured.replace(/\/$/, "");
 }

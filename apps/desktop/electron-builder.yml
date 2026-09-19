@@ -11,15 +11,20 @@ extraMetadata:
   main: out/main/index.js
 asar: true
 npmRebuild: false
+artifactName: Relay-mac-${arch}.${ext}
 mac:
   category: public.app-category.social-networking
   icon: packaging/icon.icns
   target:
-    - dir
-    - dmg
-  entitlements: packaging/entitlements.mac.plist
-  entitlementsInherit: packaging/entitlements.mac.plist
+    - target: dmg
+      arch:
+        - arm64
+  hardenedRuntime: true
   gatekeeperAssess: false
+  notarize: true
+  entitlements: packaging/entitlements.mac.plist
+  entitlementsInherit: packaging/entitlements.mac.inherit.plist
+  minimumSystemVersion: "12.0"
   extendInfo:
     NSMicrophoneUsageDescription: Relay uses the microphone for huddles.
     NSCameraUsageDescription: Relay uses the camera for huddles.

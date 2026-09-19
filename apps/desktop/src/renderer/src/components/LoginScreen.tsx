@@ -1,4 +1,5 @@
 import { useState } from "react";
+import logo from "../assets/logo.png";
 import { GoogleG } from "./Icons";
 import { signInEmail, signInGoogle, signUpEmail } from "../lib/auth";
 
@@ -53,6 +54,7 @@ export function LoginScreen() {
     <div className="login">
       <div className="login-top">
         <div className="login-mark">
+          <img src={logo} width={32} height={32} alt="" />
           relay<span className="dot">.</span>
         </div>
         <div>
@@ -86,7 +88,7 @@ export function LoginScreen() {
         </div>
       </div>
       <div className="login-card">
-        <div style={{ fontSize: 48, fontWeight: 900, letterSpacing: -2 }}>relay</div>
+        <img className="login-logo" src={logo} width={72} height={72} alt="Relay" />
         <h1>{mode === "signup" ? "Create an account" : "Sign in to Relay"}</h1>
         <div className="sub">
           {invited ? "You’ve been invited to a workspace. Use the same email the invite was sent to." : "Email and password, or Google"}

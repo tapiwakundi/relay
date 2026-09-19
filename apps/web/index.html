@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Relay — workspace chat for Mac</title>
+    <meta
+      name="description"
+      content="Relay is a Slack-shaped workspace messenger for Apple Silicon. Channels, DMs, threads, and huddles in a native Mac app."
+    />
+    <meta name="theme-color" content="#3f0e40" />
+    <link rel="icon" href="/icon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/icon.png" />
+    <meta property="og:title" content="Relay — workspace chat for Mac" />
+    <meta
+      property="og:description"
+      content="Download the native Apple Silicon app. Channels, DMs, threads, and huddles."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/icon.png" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#download">Skip to download</a>
+    <header class="top">
+      <a class="brand" href="/">
+        <img src="/icon.png" width="36" height="36" alt="Relay" />
+        relay<span class="dot">.</span>
+      </a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="https://github.com/tapiwakundi/relay/releases">Releases</a>
+        <a class="nav-cta" href="#download">Download</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">Endurance Labs</p>
+        <h1>Workspace chat that lives on your Mac.</h1>
+        <p class="lede">
+          Channels, DMs, threads, and huddles in a native desktop app. Sign in with Google or email.
+          Built for Apple Silicon.
+        </p>
+        <div class="cta-row" id="download">
+          <a class="btn-download" id="download-btn" href="https://github.com/tapiwakundi/relay/releases/latest/download/Relay-mac-arm64.dmg">
+            Download for Mac
+          </a>
+          <p class="cta-note">
+            Apple Silicon · macOS 12+ ·
+            <a href="https://github.com/tapiwakundi/relay/releases">All releases</a>
+          </p>
+        </div>
+        <p class="version" id="version">Latest build from GitHub Releases</p>
+      </section>
+
+      <section class="stage" aria-label="Product preview">
+        <div class="window">
+          <div class="traffic">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="app">
+            <aside class="rail" aria-hidden="true">
+              <div class="ws"><img src="/icon.png" width="36" height="36" alt="" /></div>
+              <div class="rail-dot"></div>
+              <div class="rail-dot dim"></div>
+            </aside>
+            <aside class="sidebar">
+              <div class="ws-name">relay<span class="dot">.</span></div>
+              <p class="heading">Channels</p>
+              <p class="item active"># general</p>
+              <p class="item"># design</p>
+              <p class="item"># engineering</p>
+              <p class="heading">Direct messages</p>
+              <p class="item">Avery Chen</p>
+              <p class="item">Jordan Blake</p>
+            </aside>
+            <section class="pane">
+              <header class="pane-head">
+                <strong># general</strong>
+                <span>12 members</span>
+              </header>
+              <div class="msgs">
+                <article>
+                  <div class="avatar a1">A</div>
+                  <div>
+                    <strong>Avery Chen</strong> <time>9:41 AM</time>
+                    <p>Standup notes are in the thread. Huddle if you want to walk the mock.</p>
+                  </div>
+                </article>
+                <article>
+                  <div class="avatar a2">J</div>
+                  <div>
+                    <strong>Jordan Blake</strong> <time>9:44 AM</time>
+                    <p>Shipping the Mac build this afternoon. Apple Silicon first.</p>
+                  </div>
+                </article>
+              </div>
+              <div class="composer">Message #general</div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="features" id="features">
+        <h2>What ships in the Mac app</h2>
+        <ul>
+          <li>
+            <h3>Channels and DMs</h3>
+            <p>Public rooms, private groups, and one-to-one chat with unread badges that stay in the dock.</p>
+          </li>
+          <li>
+            <h3>Threads</h3>
+            <p>Keep the main channel readable. Replies stay attached to the original message.</p>
+          </li>
+          <li>
+            <h3>Huddles</h3>
+            <p>Jump into voice or video without leaving the conversation. Screen share when you need it.</p>
+          </li>
+          <li>
+            <h3>Google sign-in</h3>
+            <p>Authenticate in the system browser. Relay returns through a signed app URL scheme.</p>
+          </li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>
+      <p>© Endurance Labs. Relay is not affiliated with Slack.</p>
+      <p>Questions about a build? See the <a href="https://github.com/tapiwakundi/relay/releases">GitHub releases</a>.</p>
+    </footer>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

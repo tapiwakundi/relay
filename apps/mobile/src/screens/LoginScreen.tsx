@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { getAccessToken, signInEmail, signInGoogle, signUpEmail } from "../lib/auth";
 import { Glass } from "../ui/Glass";
 import { Wallpaper } from "../ui/Wallpaper";
 import { colors, radii, space } from "../ui/theme";
+
+const logo = require("../../assets/icon.png");
 
 export function LoginScreen({ onAuthed }: { onAuthed: () => void }) {
   const [email, setEmail] = useState("");
@@ -54,7 +56,10 @@ export function LoginScreen({ onAuthed }: { onAuthed: () => void }) {
       <Wallpaper />
       <StatusBar style="light" />
       <View style={styles.center}>
-        <Text style={styles.brand}>relay</Text>
+        <View style={styles.brandRow}>
+          <Image source={logo} style={styles.brandMark} />
+          <Text style={styles.brand}>relay</Text>
+        </View>
         <Glass style={styles.card} variant="regular">
           <Text style={styles.h1}>{mode === "in" ? "Sign in" : "Create account"}</Text>
           {error ? <Text style={styles.err}>{error}</Text> : null}
@@ -104,7 +109,9 @@ export function LoginScreen({ onAuthed }: { onAuthed: () => void }) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   center: { flex: 1, justifyContent: "center", padding: 22 },
-  brand: { color: colors.ink, fontSize: 28, fontWeight: "900", marginBottom: 18, marginLeft: 8 },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 18, marginLeft: 8 },
+  brandMark: { width: 36, height: 36, borderRadius: 18 },
+  brand: { color: colors.ink, fontSize: 28, fontWeight: "900" },
   card: { padding: space.lg, borderRadius: radii.lg, gap: 10 },
   h1: { color: colors.ink, fontSize: 28, fontWeight: "800", marginBottom: 8 },
   err: { color: colors.pink, marginBottom: 4 },

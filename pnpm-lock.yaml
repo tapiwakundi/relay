@@ -254,6 +254,15 @@ importers:
         specifier: ^5.9.2
         version: 5.9.3
 
+  apps/web:
+    devDependencies:
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vite:
+        specifier: ^7.1.5
+        version: 7.3.6(@types/node@24.13.6)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
+
   packages/shared:
     devDependencies:
       typescript:

@@ -101,6 +101,16 @@ button {
   letter-spacing: -0.6px;
   color: #1d1c1d;
 }
+.login-mark img,
+.login-logo {
+  display: block;
+  border-radius: 50%;
+}
+.login-logo {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 8px;
+}
 .login-mark span.dot {
   color: #ecb22e;
 }

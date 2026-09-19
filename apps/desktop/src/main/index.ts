@@ -100,6 +100,10 @@ function installContentSecurityPolicy() {
   });
 }
 
+function appIconPath() {
+  return path.join(__dirname, "../../packaging/icon-1024.png");
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -107,6 +111,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: "Relay",
+    icon: appIconPath(),
     backgroundColor: "#3F0E40",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     trafficLightPosition: { x: 16, y: 14 },
@@ -147,6 +152,9 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  if (!app.isPackaged && process.platform === "darwin") {
+    app.dock?.setIcon(appIconPath());
+  }
   installCapture();
   installContentSecurityPolicy();
   createWindow();

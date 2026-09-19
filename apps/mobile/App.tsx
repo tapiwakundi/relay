@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
@@ -104,6 +104,7 @@ function Splash() {
   return (
     <View style={styles.splash}>
       <StatusBar style="light" />
+      <Image source={require("./assets/icon.png")} style={styles.splashMark} />
       <ActivityIndicator color={colors.ink} />
     </View>
   );
@@ -111,5 +112,6 @@ function Splash() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#1A0828" },
-  splash: { flex: 1, alignItems: "center", justifyContent: "center" },
+  splash: { flex: 1, alignItems: "center", justifyContent: "center", gap: 18 },
+  splashMark: { width: 88, height: 88, borderRadius: 44 },
 });

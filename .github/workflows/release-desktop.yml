@@ -1,0 +1,128 @@
+name: Release desktop
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  RELAY_API_URL: https://relay-api-rsck.onrender.com
+  NODE_VERSION: "22"
+
+jobs:
+  macos:
+    name: Sign and publish macOS DMG
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate tag
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.ref_type }}" != "tag" ]]; then
+            echo "Checkout a v* tag before running this workflow."
+            exit 1
+          fi
+          if [[ "$REF_NAME" != v* ]]; then
+            echo "Release tags must look like v0.1.0, got $REF_NAME"
+            exit 1
+          fi
+          VERSION="${REF_NAME#v}"
+          PACKAGE_VERSION="$(node -p "require('./apps/desktop/package.json').version")"
+          if [[ "$VERSION" != "$PACKAGE_VERSION" ]]; then
+            echo "Tag $REF_NAME does not match apps/desktop version $PACKAGE_VERSION"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Wait for production API
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS "$RELAY_API_URL/api/health" | grep -q '"ok":true'; then
+              echo "API is healthy"
+              exit 0
+            fi
+            echo "API health check failed (attempt $attempt); retrying…"
+            sleep 10
+          done
+          echo "Production API at $RELAY_API_URL/api/health is not healthy."
+          exit 1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Import signing materials
+        env:
+          CSC_LINK_B64: ${{ secrets.CSC_LINK }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CSC_LINK_B64:-}" || -z "${APPLE_API_KEY_BASE64:-}" ]]; then
+            echo "Missing CSC_LINK or APPLE_API_KEY_BASE64 secret."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/signing"
+          echo "$CSC_LINK_B64" | base64 --decode > "$RUNNER_TEMP/signing/developer-id.p12"
+          echo "$APPLE_API_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/signing/AuthKey.p8"
+          echo "CSC_LINK=$RUNNER_TEMP/signing/developer-id.p12" >> "$GITHUB_ENV"
+          echo "APPLE_API_KEY=$RUNNER_TEMP/signing/AuthKey.p8" >> "$GITHUB_ENV"
+
+      - name: Build, sign, and notarize
+        env:
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: pnpm --filter @relay/desktop dist
+
+      - name: Verify signature and notarization
+        run: |
+          set -euo pipefail
+          APP="apps/desktop/release/mac-arm64/Relay.app"
+          DMG="apps/desktop/release/Relay-mac-arm64.dmg"
+          test -d "$APP"
+          test -f "$DMG"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          spctl --assess --type install --verbose "$APP"
+          spctl --assess --type install --verbose "$DMG"
+          xcrun stapler validate "$APP"
+          xcrun stapler validate "$DMG"
+          shasum -a 256 "$DMG" | tee "$DMG.sha256"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          DMG="apps/desktop/release/Relay-mac-arm64.dmg"
+          NOTES="$(printf '%s\n' \
+            "Relay ${{ env.version }} for Apple Silicon." \
+            "" \
+            "Download: https://github.com/tapiwakundi/relay/releases/latest/download/Relay-mac-arm64.dmg" \
+            "" \
+            "Requires macOS 12+ on Apple Silicon. The app talks to ${{ env.RELAY_API_URL }}.")"
+          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
+            gh release upload "${{ github.ref_name }}" "$DMG" "$DMG.sha256" --clobber
+          else
+            gh release create "${{ github.ref_name }}" "$DMG" "$DMG.sha256" \
+              --title "Relay ${{ env.version }}" \
+              --notes "$NOTES"
+          fi

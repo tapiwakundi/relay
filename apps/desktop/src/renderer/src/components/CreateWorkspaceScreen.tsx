@@ -1,4 +1,5 @@
 import { useState } from "react";
+import logo from "../assets/logo.png";
 import { api, signOut } from "../lib/auth";
 import { Avatar } from "./Avatar";
 
@@ -64,6 +65,7 @@ export function CreateWorkspaceScreen({
     <div className="login">
       <div className="login-top">
         <div className="login-mark">
+          <img src={logo} width={32} height={32} alt="" />
           relay<span className="dot">.</span>
         </div>
         <button
