@@ -11,7 +11,7 @@ Slack-shaped workspace chat: channels, DMs, threads, huddles, desktop, and mobil
 - **DB:** Neon Postgres
 - **Files:** Neon Object Storage (`relay-storage`, private bucket)
 - **Desktop:** Electron (`com.endurancelabs.relaydesktop`) with a bundled React renderer, native notifications, and screen sharing
-- **Landing:** Static Vite site on Render (`apps/web`)
+- **Landing:** Static Vite site on Render (`apps/landing`)
 - **Mobile:** Expo + push token registration (`com.endurancelabs.relay`)
 - **Huddles:** LiveKit Cloud (optional; roster works without keys)
 
@@ -51,7 +51,7 @@ pnpm dev:desktop
 Landing page:
 
 ```bash
-pnpm dev:web
+pnpm dev:landing
 ```
 
 The first time you join a huddle, macOS asks for the microphone and camera. Screen sharing asks for screen recording. Invite links use `relay://invite?invite=…`, which both the desktop app and the mobile app can open.
@@ -86,7 +86,7 @@ Google redirect URI is `{BETTER_AUTH_URL}/api/auth/callback/google`. Desktop OAu
 Two services from [`render.yaml`](render.yaml):
 
 - **relay-api** — always-on Node web service. Point `DATABASE_URL` at Neon’s pooled URL and set Better Auth + Google + storage variables. Do not use a sleeping instance — WebSockets will die. Set `BETTER_AUTH_URL=https://relay-api-rsck.onrender.com`.
-- **relay-web** — static landing page from `apps/web`. The download button points at the latest GitHub Release DMG.
+- **relay-landing** — static landing page from `apps/landing`. The download button points at the latest GitHub Release DMG.
 
 The API `/` route stays the desktop OAuth handoff page. Marketing lives on the static site.
 
@@ -146,7 +146,7 @@ Without Apple signing secrets, notarization is skipped. Do not distribute that D
 ```
 apps/api       Hono, Better Auth, Drizzle, Files SDK, /ws
 apps/desktop   Electron app, bundled renderer, native notifications and screen sharing
-apps/web       Public download landing page
+apps/landing   Public download landing page
 apps/mobile    Expo
 packages/shared  Shared types
 neon.ts          Neon Object Storage policy

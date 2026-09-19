@@ -11,10 +11,10 @@ services:
         value: "22"
 
   - type: web
-    name: relay-web
+    name: relay-landing
     runtime: static
-    buildCommand: pnpm install --frozen-lockfile=false && pnpm --filter @relay/web build
-    staticPublishPath: apps/web/dist
+    buildCommand: pnpm install --frozen-lockfile=false && pnpm --filter @relay/landing build
+    staticPublishPath: apps/landing/dist
     envVars:
       - key: NODE_VERSION
         value: "22"
