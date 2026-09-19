@@ -21,7 +21,7 @@ export const desktopHandoffHtml = `<!doctype html>
         if (token) {
           clearInterval(timer);
           document.cookie = name + "=; Max-Age=0; Path=/";
-          location.replace("${SCHEME}:/auth/callback#token=" + encodeURIComponent(token));
+          location.replace("${SCHEME}://auth/callback#token=" + token);
           return;
         }
         if (Date.now() - started > 4000) {

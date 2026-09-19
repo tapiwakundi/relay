@@ -33,7 +33,7 @@ Create a Google Cloud **Web application** OAuth client and put `GOOGLE_CLIENT_ID
 
 - `http://localhost:3001/api/auth/callback/google`
 
-`pnpm dev` starts the API and the desktop app. The first account creates an empty workspace; later accounts join it. Google sign-in opens the system browser and returns to the app through `com.endurancelabs.relaydesktop:/auth/callback`.
+`pnpm dev` starts the API and the desktop app. The first account creates an empty workspace; later accounts join it. Google sign-in opens the system browser and returns to the app through `com.endurancelabs.relaydesktop://auth/callback`.
 
 Desktop alone (API already running):
 

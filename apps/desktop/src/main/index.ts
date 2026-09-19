@@ -16,7 +16,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // When a config object is passed, @better-auth/electron only enables features that are explicitly `true`.
 // `bridges` registers the better-auth:* IPC handlers the preload relies on; `scheme` handles the
-// com.endurancelabs.relaydesktop:/auth/callback deep link after browser sign-in. CSP is managed in
+// com.endurancelabs.relaydesktop://auth/callback deep link after browser sign-in. CSP is managed in
 // installContentSecurityPolicy() below.
 authClient.setupMain({
   csp: false,
