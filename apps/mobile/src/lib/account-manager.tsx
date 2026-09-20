@@ -139,6 +139,21 @@ export function AccountManager({ children }: { children: ReactNode }) {
   const completeAuth = useCallback(async () => {
     const creds = await extractCredentials();
     if (!creds) {
+      // #region agent log
+      fetch("http://127.0.0.1:7660/ingest/d411e104-0031-4050-914e-31602e54b52b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6e3817" },
+        body: JSON.stringify({
+          sessionId: "6e3817",
+          runId: "pre-fix",
+          hypothesisId: "H4",
+          location: "apps/mobile/src/lib/account-manager.tsx:completeAuth:no-creds",
+          message: "completeAuth missing credentials",
+          data: { adding },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
       if (adding) {
         setAdding(false);
         setAddingAccount(false);

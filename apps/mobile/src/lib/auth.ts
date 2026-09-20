@@ -1,6 +1,7 @@
 import { createAuthClient } from "better-auth/react";
 import { expoClient } from "@better-auth/expo/client";
 import Constants from "expo-constants";
+import * as Linking from "expo-linking";
 import * as SecureStore from "expo-secure-store";
 import { notifyAccountExpired } from "./session";
 import { getActiveWorkspaceId } from "./query";
@@ -94,9 +95,31 @@ function sessionTokenFromCookie(cookie: string): string | null {
 
 export async function extractCredentials(client = liveClient()): Promise<StoredAccount | null> {
   const { data, error } = await client.getSession();
-  if (error || !data?.user) return null;
   const cookie = await client.getCookie();
   const token = tokenFrom(data) ?? sessionTokenFromCookie(cookie) ?? "";
+  // #region agent log
+  fetch("http://127.0.0.1:7660/ingest/d411e104-0031-4050-914e-31602e54b52b", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6e3817" },
+    body: JSON.stringify({
+      sessionId: "6e3817",
+      runId: "pre-fix",
+      hypothesisId: "H4",
+      location: "apps/mobile/src/lib/auth.ts:extractCredentials",
+      message: "extractCredentials session",
+      data: {
+        adding,
+        hasUser: Boolean(data?.user),
+        hasError: Boolean(error),
+        errorName: error && typeof error === "object" && "message" in error ? String((error as { message?: unknown }).message ?? "") : null,
+        hasCookie: Boolean(cookie),
+        hasToken: Boolean(token),
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+  if (error || !data?.user) return null;
   if (!token && !cookie) return null;
   return {
     id: data.user.id,
@@ -157,16 +180,85 @@ export async function signUpEmail(name: string, email: string, password: string)
 }
 
 export async function signInGoogle() {
-  return liveClient().signIn.social({
-    provider: "google",
-    callbackURL: "/",
-    fetchOptions: {
-      headers: {
-        "x-forwarded-host": "localhost:3001",
-        "x-forwarded-proto": "http",
+  const origin = apiOrigin();
+  const callbackDefault = Linking.createURL("/");
+  const callbackScheme = Linking.createURL("/", { scheme: "relay" });
+  const expoOrigin = Linking.createURL("", { scheme: "relay" });
+  // #region agent log
+  fetch("http://127.0.0.1:7660/ingest/d411e104-0031-4050-914e-31602e54b52b", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6e3817" },
+    body: JSON.stringify({
+      sessionId: "6e3817",
+      runId: "pre-fix",
+      hypothesisId: "H1",
+      location: "apps/mobile/src/lib/auth.ts:signInGoogle:start",
+      message: "google sign-in start",
+      data: { origin, adding, callbackDefault, callbackScheme, expoOrigin },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+  try {
+    const result = await liveClient().signIn.social({
+      provider: "google",
+      callbackURL: "/",
+      fetchOptions: {
+        headers: {
+          "x-forwarded-host": "localhost:3001",
+          "x-forwarded-proto": "http",
+        },
       },
-    },
-  });
+    });
+    let urlHost: string | null = null;
+    const url = result.data && typeof result.data === "object" && "url" in result.data ? (result.data as { url?: unknown }).url : null;
+    if (typeof url === "string") {
+      try {
+        urlHost = new URL(url).host;
+      } catch {
+        urlHost = "unparseable";
+      }
+    }
+    // #region agent log
+    fetch("http://127.0.0.1:7660/ingest/d411e104-0031-4050-914e-31602e54b52b", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6e3817" },
+      body: JSON.stringify({
+        sessionId: "6e3817",
+        runId: "pre-fix",
+        hypothesisId: "H2",
+        location: "apps/mobile/src/lib/auth.ts:signInGoogle:result",
+        message: "google sign-in result",
+        data: {
+          hasError: Boolean(result.error),
+          errorMessage: result.error?.message ?? null,
+          dataKeys: result.data && typeof result.data === "object" ? Object.keys(result.data) : [],
+          redirect: result.data && typeof result.data === "object" && "redirect" in result.data ? Boolean((result.data as { redirect?: unknown }).redirect) : null,
+          urlHost,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    return result;
+  } catch (err) {
+    // #region agent log
+    fetch("http://127.0.0.1:7660/ingest/d411e104-0031-4050-914e-31602e54b52b", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6e3817" },
+      body: JSON.stringify({
+        sessionId: "6e3817",
+        runId: "pre-fix",
+        hypothesisId: "H1",
+        location: "apps/mobile/src/lib/auth.ts:signInGoogle:throw",
+        message: "google sign-in threw",
+        data: { name: err instanceof Error ? err.name : "unknown", message: err instanceof Error ? err.message : String(err) },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    throw err;
+  }
 }
 
 export async function signOutClient(client = liveClient()) {

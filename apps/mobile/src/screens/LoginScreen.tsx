@@ -50,7 +50,37 @@ export function LoginScreen({
       const result = await signInGoogle();
       if (result.error) throw new Error(result.error.message ?? "Google sign-in failed");
       await finish();
+      // #region agent log
+      fetch("http://127.0.0.1:7660/ingest/d411e104-0031-4050-914e-31602e54b52b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6e3817" },
+        body: JSON.stringify({
+          sessionId: "6e3817",
+          runId: "pre-fix",
+          hypothesisId: "H4",
+          location: "apps/mobile/src/screens/LoginScreen.tsx:google:finish",
+          message: "google finish completed without throw",
+          data: { add: Boolean(add), hasResultError: Boolean(result.error) },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
     } catch (e) {
+      // #region agent log
+      fetch("http://127.0.0.1:7660/ingest/d411e104-0031-4050-914e-31602e54b52b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6e3817" },
+        body: JSON.stringify({
+          sessionId: "6e3817",
+          runId: "pre-fix",
+          hypothesisId: "H1",
+          location: "apps/mobile/src/screens/LoginScreen.tsx:google:catch",
+          message: "google sign-in UI error",
+          data: { message: e instanceof Error ? e.message : String(e) },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);

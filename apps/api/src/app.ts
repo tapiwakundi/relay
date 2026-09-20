@@ -1,3 +1,4 @@
+import { appendFileSync } from "node:fs";
 import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
 import type { MeResponse } from "@relay/shared";
@@ -94,7 +95,43 @@ export function createApp(opts: { db: AppDb; hub: Hub; auth: Auth }) {
   app.get("/", (c) => c.html(desktopHandoffHtml));
   app.get("/desktop/callback", (c) => c.html(desktopHandoffHtml));
 
-  app.all("/api/auth/*", (c) => auth.handler(c.req.raw));
+  app.all("/api/auth/*", async (c) => {
+    const path = c.req.path;
+    const host = c.req.header("host") ?? null;
+    const xfHost = c.req.header("x-forwarded-host") ?? null;
+    const expoOrigin = c.req.header("expo-origin") ?? null;
+    const origin = c.req.header("origin") ?? null;
+    let locationMeta: { protocol?: string; host?: string; pathname?: string; hasCookie?: boolean; raw?: string } | null = null;
+    const res = await auth.handler(c.req.raw);
+    const location = res.headers.get("location");
+    if (location) {
+      try {
+        const u = new URL(location);
+        locationMeta = { protocol: u.protocol, host: u.host, pathname: u.pathname, hasCookie: u.searchParams.has("cookie") };
+      } catch {
+        locationMeta = { raw: location.slice(0, 80) };
+      }
+    }
+    // #region agent log
+    try {
+      appendFileSync(
+        "/Users/tapiwakundishora/Code/relay/.cursor/debug-6e3817.log",
+        `${JSON.stringify({
+          sessionId: "6e3817",
+          runId: "pre-fix",
+          hypothesisId: path.includes("callback") || path.includes("expo-authorization-proxy") ? "H5" : "H1",
+          location: "apps/api/src/app.ts:auth",
+          message: "auth request",
+          data: { method: c.req.method, path, status: res.status, host, xfHost, expoOrigin, origin, locationMeta },
+          timestamp: Date.now(),
+        })}\n`,
+      );
+    } catch {
+      /* ignore */
+    }
+    // #endregion
+    return res;
+  });
 
   app.get("/api/health", (c) =>
     c.json({
