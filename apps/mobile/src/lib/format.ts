@@ -39,7 +39,7 @@ export function wrapSelection(text: string, start: number, end: number, before: 
   };
 }
 
-export const ICON_COLORS = ["#4A154B", "#1264A3", "#007A5A", "#E01E5A", "#3F0E40", "#1164A3", "#ECB22E", "#E51670"];
+export const ICON_COLORS = ["#1A5FB4", "#1264A3", "#007A5A", "#E01E5A", "#0E3C74", "#1164A3", "#ECB22E", "#E51670"];
 
 export type BodyPart =
   | { type: "text"; value: string }

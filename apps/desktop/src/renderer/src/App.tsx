@@ -628,7 +628,7 @@ export function WorkspaceApp() {
         subtitle: preview?.slug || account.email,
         glyph: preview ?? {
           name: account.name,
-          iconColor: "#4A154B",
+          iconColor: "#1A5FB4",
           iconLetter: (account.name[0] || "W").toUpperCase(),
           iconUrl: null,
         },

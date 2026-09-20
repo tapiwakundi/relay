@@ -164,7 +164,7 @@ function createWindow() {
     minHeight: 600,
     title: "Relay",
     icon: appIconPath(),
-    backgroundColor: "#3F0E40",
+    backgroundColor: "#1A5FB4",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     trafficLightPosition: { x: 16, y: 14 },
     webPreferences: {

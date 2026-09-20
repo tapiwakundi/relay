@@ -62,25 +62,25 @@ export function HomeScreen() {
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tiles}>
           <Shortcut
-            icon={<IconSlackbot size={24} />}
+            icon={<IconSlackbot size={26} />}
             label="Slackbot"
             sub="Ask anything"
             onPress={() => (slackbot ? nav.navigate("Channel", { channelId: slackbot.id }) : nav.navigate("Search"))}
           />
           <Shortcut
-            icon={<IconThreads color={colors.aubergine} size={22} />}
+            icon={<IconThreads color={colors.aubergine} size={26} />}
             label="Threads"
             sub={`${threadNew} new`}
             onPress={() => nav.navigate("Threads")}
           />
           <Shortcut
-            icon={<IconHeadphones color={colors.aubergine} size={22} />}
+            icon={<IconHeadphones color={colors.aubergine} size={26} />}
             label="Huddles"
             sub={`${liveHuddles.length} live`}
             onPress={() => liveHuddles[0] && nav.navigate("Channel", { channelId: liveHuddles[0].id })}
           />
           <Shortcut
-            icon={<IconBookmark color={colors.aubergine} size={22} />}
+            icon={<IconBookmark color={colors.aubergine} size={26} />}
             label="Later"
             sub={`${laterCount} items`}
             onPress={() => nav.navigate("Later")}
@@ -161,7 +161,7 @@ export function HomeScreen() {
       />
 
       <Pressable style={[styles.fab, { bottom: 92 + insets.bottom }]} onPress={() => nav.navigate("NewChannel")}>
-        <IconPlus size={22} />
+        <IconPlus size={28} />
       </Pressable>
 
       <Modal visible={switcher} transparent animationType="fade" onRequestClose={() => setSwitcher(false)}>

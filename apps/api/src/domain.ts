@@ -26,10 +26,10 @@ export function pairKey(ids: string[]) {
 }
 
 function colorFor(name: string) {
-  const colors = ["#4A154B", "#1264A3", "#007A5A", "#E01E5A", "#3F0E40", "#1164A3"];
+  const colors = ["#1A5FB4", "#1264A3", "#007A5A", "#E01E5A", "#0E3C74", "#1164A3"];
   let h = 0;
   for (const c of name) h = (h + c.charCodeAt(0)) % colors.length;
-  return colors[h] ?? "#4A154B";
+  return colors[h] ?? "#1A5FB4";
 }
 
 export function slugify(name: string) {

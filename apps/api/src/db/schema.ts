@@ -103,7 +103,7 @@ export const workspace = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
-    iconColor: text("icon_color").notNull().default("#4A154B"),
+    iconColor: text("icon_color").notNull().default("#1A5FB4"),
     iconLetter: text("icon_letter").notNull().default("R"),
     iconKey: text("icon_key"),
     plan: text("plan").notNull().default("Pro"),

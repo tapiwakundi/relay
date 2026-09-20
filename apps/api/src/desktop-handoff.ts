@@ -7,7 +7,7 @@ export const desktopHandoffHtml = `<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Relay</title>
   </head>
-  <body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#3F0E40;color:#fff;font-family:Lato,sans-serif">
+  <body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#1A5FB4;color:#fff;font-family:Lato,sans-serif">
     <p id="msg">Finishing sign-in…</p>
     <script>
       const name = "better-auth.electron";

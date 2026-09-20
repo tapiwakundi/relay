@@ -84,10 +84,10 @@ function Root() {
     prevActive.current = snapshot.activeAccountId;
   }, [snapshot.activeAccountId]);
 
-  if (!ready) return <div style={{ height: "100%", background: "#3F0E40" }} />;
+  if (!ready) return <div style={{ height: "100%", background: "#1A5FB4" }} />;
   if (!window.relayDesktop) {
     return (
-      <div style={{ height: "100%", background: "#3F0E40", color: "#fff", padding: 32, fontFamily: "sans-serif" }}>
+      <div style={{ height: "100%", background: "#1A5FB4", color: "#fff", padding: 32, fontFamily: "sans-serif" }}>
         Relay couldn’t reach the desktop app. Quit this window and run pnpm dev again.
       </div>
     );

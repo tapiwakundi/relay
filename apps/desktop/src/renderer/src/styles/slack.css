@@ -6,14 +6,14 @@
   --header-h: 49px;
   --thread-w: 400px;
 
-  --aubergine: #3f0e40;
-  --aubergine-dark: #350d36;
-  --aubergine-rail: #2c0b2c;
+  --aubergine: #1a5fb4;
+  --aubergine-dark: #154e96;
+  --aubergine-rail: #0e3c74;
   --aubergine-hover: rgba(255, 255, 255, 0.08);
   --aubergine-active: rgba(255, 255, 255, 0.16);
-  --sidebar-text: #d1c3d2;
+  --sidebar-text: #c5d4ea;
   --sidebar-text-strong: #ffffff;
-  --sidebar-heading: #c5b6c7;
+  --sidebar-heading: #b4c6e0;
   --badge: #e01e5a;
   --presence: #2bac76;
   --presence-away: #ecb22e;
@@ -279,7 +279,7 @@ button {
   grid-template-columns: var(--rail-w) var(--sidebar-w) 1fr;
   grid-template-rows: var(--topbar-h) minmax(0, 1fr);
   height: 100%;
-  background: var(--bg);
+  background: var(--aubergine-rail);
 }
 .shell.with-thread {
   grid-template-columns: var(--rail-w) var(--sidebar-w) minmax(0, 1fr) minmax(320px, 400px);
@@ -369,8 +369,8 @@ button {
 .ws-glyph {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
-  background: #4a154b;
+  border-radius: 12px;
+  background: #1a5fb4;
   color: #fff;
   border: none;
   padding: 0;
@@ -396,7 +396,7 @@ button {
   border: none;
   background: transparent;
   color: rgba(255, 255, 255, 0.7);
-  border-radius: 8px;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -437,7 +437,7 @@ button {
 .rail-avatar {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: 12px;
   position: relative;
   background: #1164a3;
   display: grid;
@@ -454,6 +454,9 @@ button {
   min-width: 0;
   min-height: 0;
   border-right: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 12px 0 0 12px;
+  margin-bottom: 8px;
+  overflow: hidden;
 }
 .sb-head {
   height: 49px;
@@ -675,6 +678,13 @@ button {
   min-height: 0;
   background: #fff;
   position: relative;
+  border-radius: 0 12px 12px 0;
+  margin: 0 8px 8px 0;
+  overflow: hidden;
+}
+.shell.with-thread .main {
+  border-radius: 0;
+  margin-right: 0;
 }
 .ch-header {
   height: var(--header-h);
@@ -1088,6 +1098,9 @@ button {
   background: #fff;
   min-width: 0;
   min-height: 0;
+  border-radius: 0 12px 12px 0;
+  margin: 0 8px 8px 0;
+  overflow: hidden;
 }
 .thread-h {
   height: var(--header-h);
@@ -1342,6 +1355,7 @@ code {
   color: #fff;
   cursor: pointer;
   padding: 0;
+  border-radius: 12px;
 }
 .composer {
   position: relative;
@@ -2127,7 +2141,7 @@ code {
   width: 36px;
   height: 36px;
   margin: 4px;
-  border-radius: 8px;
+  border-radius: 12px;
   background: #2c2f33;
   color: #e8e8e8;
 }
@@ -2135,7 +2149,7 @@ code {
   width: 36px;
   height: 36px;
   margin: 0;
-  border-radius: 8px;
+  border-radius: 12px;
   font-size: 18px;
   box-shadow: none;
   cursor: default;

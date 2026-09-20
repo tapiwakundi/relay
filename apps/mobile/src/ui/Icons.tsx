@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { Ionicons } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { colors } from "./theme";
 
 type Name = ComponentProps<typeof Ionicons>["name"];
@@ -41,7 +41,7 @@ export function IconPencil({ color = colors.headerInk, size = 18 }: { color?: st
 }
 
 export function IconHash({ color = colors.muted, size = 16 }: { color?: string; size?: number }) {
-  return <Ion name="hash" color={color} size={size} />;
+  return <Feather name="hash" size={size} color={color} />;
 }
 
 export function IconLock({ color = colors.muted, size = 16 }: { color?: string; size?: number }) {
