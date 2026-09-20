@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAccounts } from "../lib/account-manager";
 import { api } from "../lib/auth";
 import { keys, queryClient, setActiveWorkspaceId } from "../lib/query";
 import { useWorkspace } from "../lib/workspace";
-import { Glass } from "../ui/Glass";
-import { HeaderBtn, ScreenHeader } from "../ui/Header";
+import { HeaderBtn } from "../ui/Header";
+import { PageHeader, ScreenCanvas } from "../ui/SlackChrome";
 import { colors, radii, space } from "../ui/theme";
 import type { RootStackParamList } from "../nav/types";
 
@@ -15,7 +14,6 @@ type Props = NativeStackScreenProps<RootStackParamList, "AddWorkspace">;
 type Panel = "choose" | "find" | "create";
 
 export function AddWorkspaceScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
   const { startAddAccount } = useAccounts();
   const { workspaces, workspace, selectWorkspace } = useWorkspace();
   const [view, setView] = useState<Panel>("choose");
@@ -67,18 +65,16 @@ export function AddWorkspaceScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <Glass style={styles.head}>
-        <ScreenHeader
-          title={title}
-          left={
-            <HeaderBtn
-              label="‹"
-              onPress={() => (view === "choose" ? navigation.goBack() : setView("choose"))}
-            />
-          }
-        />
-      </Glass>
+    <ScreenCanvas>
+      <PageHeader
+        title={title}
+        left={
+          <HeaderBtn
+            label="‹"
+            onPress={() => (view === "choose" ? navigation.goBack() : setView("choose"))}
+          />
+        }
+      />
       <View style={{ padding: space.md, gap: 8 }}>
         {error ? <Text style={styles.err}>{error}</Text> : null}
         {view === "choose" ? (
@@ -88,7 +84,7 @@ export function AddWorkspaceScreen({ navigation }: Props) {
             <Row icon="+" label="Create a new workspace" onPress={() => setView("create")} />
           </>
         ) : view === "create" ? (
-          <Glass style={styles.card}>
+          <View style={styles.card}>
             <TextInput
               style={styles.input}
               placeholder="Workspace name"
@@ -99,7 +95,7 @@ export function AddWorkspaceScreen({ navigation }: Props) {
             <Pressable style={styles.cta} disabled={busy || !name.trim()} onPress={() => void create()}>
               {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaTxt}>Create</Text>}
             </Pressable>
-          </Glass>
+          </View>
         ) : (
           <>
             {workspaces.map((ws) => (
@@ -110,7 +106,7 @@ export function AddWorkspaceScreen({ navigation }: Props) {
                   void selectWorkspace(ws.id).then(() => navigation.goBack());
                 }}
               >
-                <Glass style={styles.row}>
+                <View style={styles.row}>
                   <View style={styles.ico}>
                     <Text style={styles.icoTxt}>{(ws.iconLetter || ws.name[0] || "W").toUpperCase()}</Text>
                   </View>
@@ -118,10 +114,10 @@ export function AddWorkspaceScreen({ navigation }: Props) {
                     {ws.name}
                     {ws.id === workspace.id ? " · current" : ""}
                   </Text>
-                </Glass>
+                </View>
               </Pressable>
             ))}
-            <Glass style={styles.card}>
+            <View style={styles.card}>
               <TextInput
                 style={styles.input}
                 placeholder="Paste invite link"
@@ -133,31 +129,29 @@ export function AddWorkspaceScreen({ navigation }: Props) {
               <Pressable style={styles.cta} disabled={busy || !invite.trim()} onPress={() => void join()}>
                 {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaTxt}>Join workspace</Text>}
               </Pressable>
-            </Glass>
+            </View>
           </>
         )}
       </View>
-    </View>
+    </ScreenCanvas>
   );
 }
 
 function Row({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress}>
-      <Glass style={styles.row}>
+      <View style={styles.row}>
         <View style={styles.ico}>
           <Text style={styles.icoTxt}>{icon}</Text>
         </View>
         <Text style={styles.rowTxt}>{label}</Text>
-      </Glass>
+      </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  head: { marginHorizontal: 12, marginBottom: 8, borderRadius: radii.lg },
-  card: { padding: 16, borderRadius: radii.lg, gap: 10 },
+  card: { padding: 16, borderRadius: radii.lg, gap: 10, borderWidth: 1, borderColor: colors.hairline },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -165,12 +159,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
   },
   ico: {
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: colors.inputFill,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -182,7 +178,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     paddingHorizontal: 12,
     color: colors.ink,
-    backgroundColor: "rgba(0,0,0,0.22)",
+    backgroundColor: colors.inputFill,
     fontSize: 16,
   },
   cta: {

@@ -1,22 +1,28 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import type { Workspace } from "@relay/shared";
-import { colors } from "./theme";
 
 export function WorkspaceGlyph({
   workspace,
   size = 36,
+  round,
   onPress,
 }: {
   workspace: Pick<Workspace, "name" | "iconColor" | "iconLetter" | "iconUrl">;
   size?: number;
+  round?: boolean;
   onPress?: () => void;
 }) {
   const inner = (
     <View
       style={[
         styles.box,
-        { width: size, height: size, borderRadius: size * 0.22, backgroundColor: workspace.iconColor },
+        {
+          width: size,
+          height: size,
+          borderRadius: round ? size / 2 : size * 0.22,
+          backgroundColor: workspace.iconColor,
+        },
       ]}
     >
       {workspace.iconUrl ? (
@@ -32,5 +38,5 @@ export function WorkspaceGlyph({
 
 const styles = StyleSheet.create({
   box: { overflow: "hidden", alignItems: "center", justifyContent: "center" },
-  letter: { color: colors.ink, fontWeight: "800" },
+  letter: { color: "#fff", fontWeight: "800" },
 });

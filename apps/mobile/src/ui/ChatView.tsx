@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   file: { color: colors.accent, marginTop: 6, fontWeight: "700" },
   rxns: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 },
   rxn: {
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: colors.inputFill,
     borderRadius: radii.pill,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     minHeight: 80,
     color: colors.ink,
     fontSize: 16,
-    backgroundColor: "rgba(0,0,0,0.2)",
+    backgroundColor: colors.inputFill,
     borderRadius: 12,
     padding: 10,
   },

@@ -74,6 +74,6 @@ const styles = StyleSheet.create({
     bottom: -1,
     borderRadius: 99,
     borderWidth: 2,
-    borderColor: "#2B0B3A",
+              borderColor: "#fff",
   },
 });

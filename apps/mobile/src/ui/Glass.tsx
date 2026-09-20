@@ -15,6 +15,7 @@ export function Glass({
   variant = "regular",
   interactive = false,
   fallback = "dark",
+  colorScheme,
 }: {
   children?: ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -22,6 +23,7 @@ export function Glass({
   variant?: "regular" | "clear";
   interactive?: boolean;
   fallback?: "dark" | "light";
+  colorScheme?: "auto" | "light" | "dark";
 }) {
   const [reduce, setReduce] = useState(false);
   useEffect(() => {
@@ -29,15 +31,17 @@ export function Glass({
     void AccessibilityInfo.isReduceTransparencyEnabled?.().then(setReduce);
     return () => sub.remove();
   }, []);
+  const scheme = colorScheme ?? (fallback === "light" ? "light" : "dark");
+  const light = scheme === "light" || fallback === "light";
 
   if (canUseLiquidGlass() && !reduce) {
     return (
       <GlassView
-        style={[styles.clip, style]}
+        style={style}
         glassEffectStyle={variant}
-        tintColor={tintColor ?? colors.glassTint}
+        {...(tintColor || !light ? { tintColor: tintColor ?? colors.glassTint } : {})}
         isInteractive={interactive}
-        colorScheme="dark"
+        colorScheme={scheme}
       >
         {children}
       </GlassView>
@@ -46,13 +50,17 @@ export function Glass({
 
   if (!reduce) {
     return (
-      <BlurView intensity={42} tint={fallback} style={[styles.clip, styles.fallback, style]}>
+      <BlurView
+        intensity={light ? 64 : 42}
+        tint={light ? "light" : "dark"}
+        style={[styles.clip, light ? styles.fallbackLight : styles.fallback, style]}
+      >
         {children}
       </BlurView>
     );
   }
 
-  return <View style={[styles.clip, styles.solid, style]}>{children}</View>;
+  return <View style={[styles.clip, light ? styles.solidLight : styles.solid, style]}>{children}</View>;
 }
 
 export function GlassGroup({
@@ -71,7 +79,7 @@ export function GlassGroup({
       </GlassContainer>
     );
   }
-  return <View style={style}>{children}</View>;
+  return <View style={[{ gap: spacing }, style]}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -82,8 +90,16 @@ const styles = StyleSheet.create({
   fallback: {
     backgroundColor: colors.fallback,
   },
+  fallbackLight: {
+    backgroundColor: colors.fallbackLight,
+  },
   solid: {
     backgroundColor: colors.fallbackStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.hairline,
+  },
+  solidLight: {
+    backgroundColor: colors.fallbackLightStrong,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.hairline,
   },

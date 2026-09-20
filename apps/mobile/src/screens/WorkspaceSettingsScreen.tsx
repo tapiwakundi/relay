@@ -2,21 +2,19 @@ import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../lib/auth";
 import { ICON_COLORS } from "../lib/format";
 import { keys, queryClient } from "../lib/query";
 import { useWorkspace } from "../lib/workspace";
-import { Glass } from "../ui/Glass";
 import { WorkspaceGlyph } from "../ui/Glyph";
-import { HeaderBtn, ScreenHeader } from "../ui/Header";
+import { HeaderBtn } from "../ui/Header";
+import { PageHeader, ScreenCanvas } from "../ui/SlackChrome";
 import { colors, radii, space } from "../ui/theme";
 import type { RootStackParamList } from "../nav/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "WorkspaceSettings">;
 
 export function WorkspaceSettingsScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
   const { workspace, me } = useWorkspace();
   const [name, setName] = useState(workspace.name);
   const [iconColor, setIconColor] = useState(workspace.iconColor);
@@ -55,16 +53,14 @@ export function WorkspaceSettingsScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <Glass style={styles.head}>
-        <ScreenHeader
-          title="Workspace"
-          left={<HeaderBtn label="‹" onPress={() => navigation.goBack()} />}
-          right={admin ? <HeaderBtn label="Save" onPress={() => void save()} /> : undefined}
-        />
-      </Glass>
+    <ScreenCanvas>
+      <PageHeader
+        title="Workspace"
+        left={<HeaderBtn label="‹" onPress={() => navigation.goBack()} />}
+        right={admin ? <HeaderBtn label="Save" onPress={() => void save()} /> : undefined}
+      />
       <ScrollView contentContainerStyle={{ padding: space.md }}>
-        <Glass style={styles.card}>
+        <View style={styles.card}>
           <Pressable onPress={() => admin && void pickIcon()} style={{ alignSelf: "center" }}>
             <WorkspaceGlyph workspace={{ ...workspace, iconColor, iconLetter }} size={72} />
           </Pressable>
@@ -96,15 +92,13 @@ export function WorkspaceSettingsScreen({ navigation }: Props) {
               />
             ))}
           </View>
-        </Glass>
+        </View>
       </ScrollView>
-    </View>
+    </ScreenCanvas>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  head: { marginHorizontal: 12, borderRadius: radii.lg },
   card: { padding: space.lg, borderRadius: radii.lg, gap: 8 },
   hint: { color: colors.muted, textAlign: "center" },
   err: { color: colors.pink },
@@ -114,10 +108,10 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     paddingHorizontal: 12,
     color: colors.ink,
-    backgroundColor: "rgba(0,0,0,0.22)",
+    backgroundColor: colors.inputFill,
     fontSize: 16,
   },
   swatches: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 6 },
   swatch: { width: 32, height: 32, borderRadius: 16 },
-  swatchOn: { borderWidth: 3, borderColor: "#fff" },
+  swatchOn: { borderWidth: 3, borderColor: colors.aubergine },
 });

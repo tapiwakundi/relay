@@ -48,14 +48,14 @@ export function CreateWorkspaceScreen({ onCreated }: { onCreated: () => void }) 
       <Wallpaper />
       <StatusBar style="light" />
       <View style={styles.center}>
-        <Glass style={styles.card}>
+        <Glass style={styles.card} colorScheme="dark">
           <Text style={styles.h1}>Create a workspace</Text>
           <Text style={styles.sub}>You’re signed in. Name your team, or paste an invite token.</Text>
           {error ? <Text style={styles.err}>{error}</Text> : null}
           <TextInput
             style={styles.input}
             placeholder="Workspace name"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.headerMuted}
             value={name}
             onChangeText={setName}
           />
@@ -66,7 +66,7 @@ export function CreateWorkspaceScreen({ onCreated }: { onCreated: () => void }) 
           <TextInput
             style={styles.input}
             placeholder="Invite token"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.headerMuted}
             value={invite}
             onChangeText={setInvite}
             autoCapitalize="none"
@@ -90,14 +90,14 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   center: { flex: 1, justifyContent: "center", padding: 22 },
   card: { padding: space.lg, borderRadius: radii.lg, gap: 10 },
-  h1: { color: colors.ink, fontSize: 28, fontWeight: "800" },
-  sub: { color: colors.muted, marginBottom: 4 },
+  h1: { color: colors.headerInk, fontSize: 28, fontWeight: "800" },
+  sub: { color: colors.headerMuted, marginBottom: 4 },
   err: { color: colors.pink },
   input: {
     height: 48,
     borderRadius: radii.sm,
     paddingHorizontal: 12,
-    color: colors.ink,
+    color: colors.headerInk,
     backgroundColor: "rgba(0,0,0,0.22)",
     fontSize: 16,
   },
@@ -109,15 +109,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ctaTxt: { color: "#fff", fontWeight: "800", fontSize: 16 },
-  or: { color: colors.faint, textAlign: "center", fontWeight: "600" },
+  or: { color: colors.headerMuted, textAlign: "center", fontWeight: "600" },
   alt: {
     height: 48,
     borderRadius: radii.sm,
     borderWidth: 1,
-    borderColor: colors.hairline,
+    borderColor: "rgba(255,255,255,0.28)",
     alignItems: "center",
     justifyContent: "center",
   },
-  altTxt: { color: colors.ink, fontWeight: "800" },
-  out: { color: colors.muted, textAlign: "center", marginTop: 8 },
+  altTxt: { color: colors.headerInk, fontWeight: "800" },
+  out: { color: colors.headerMuted, textAlign: "center", marginTop: 8 },
 });

@@ -1,63 +1,63 @@
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAccounts } from "../lib/account-manager";
 import { api } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";
 import { Avatar } from "../ui/Avatar";
-import { Glass } from "../ui/Glass";
-import { ScreenHeader } from "../ui/Header";
-import { colors, radii, space } from "../ui/theme";
+import { WorkspaceGlyph } from "../ui/Glyph";
+import { FloatingWorkspaceChrome, ScreenCanvas, ScrollingHero, useCompactScroll } from "../ui/SlackChrome";
+import { colors } from "../ui/theme";
 import type { RootStackParamList } from "../nav/types";
 
 export function YouScreen() {
-  const insets = useSafeAreaInsets();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { me, workspace, workspaces, selectWorkspace } = useWorkspace();
   const { accounts, activeAccountId, switchAccount, removeAccount } = useAccounts();
+  const { compact, onScroll, scrollEventThrottle } = useCompactScroll();
 
   async function setPresence(presence: string) {
     await api("/api/me", { method: "PATCH", body: JSON.stringify({ presence }) });
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <Glass style={styles.head}>
-        <ScreenHeader title="You" />
-      </Glass>
-      <ScrollView contentContainerStyle={{ padding: space.md, paddingBottom: 140 }}>
-        <Pressable onPress={() => nav.navigate("EditProfile")}>
-          <Glass style={styles.card}>
-            <View style={styles.me}>
-              <Avatar name={me.displayName} image={me.image} size={64} presence={me.presence} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.name}>
-                  {me.statusEmoji ? `${me.statusEmoji} ` : ""}
-                  {me.displayName}
-                </Text>
-                <Text style={styles.sub}>{me.title || me.email}</Text>
-                <Text style={styles.sub}>{me.statusText || me.presence}</Text>
-              </View>
+    <ScreenCanvas>
+      <ScrollView
+        scrollEventThrottle={scrollEventThrottle}
+        onScroll={onScroll}
+        contentContainerStyle={{ paddingBottom: 140 }}
+      >
+        <ScrollingHero title="You" />
+        <View style={{ padding: 16 }}>
+        <Pressable onPress={() => nav.navigate("EditProfile")} style={styles.card}>
+          <View style={styles.me}>
+            <Avatar name={me.displayName} image={me.image} size={64} presence={me.presence} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.name}>
+                {me.statusEmoji ? `${me.statusEmoji} ` : ""}
+                {me.displayName}
+              </Text>
+              <Text style={styles.sub}>{me.title || me.email}</Text>
+              <Text style={styles.sub}>{me.statusText || me.presence}</Text>
             </View>
-          </Glass>
+          </View>
         </Pressable>
 
         <Text style={styles.sec}>Presence</Text>
-        <Glass style={styles.group}>
+        <View style={styles.group}>
           {(["active", "away", "dnd"] as const).map((p) => (
             <Pressable key={p} style={styles.row} onPress={() => void setPresence(p)}>
               <Text style={styles.rowTxt}>{p === "active" ? "Active" : p === "away" ? "Away" : "Do not disturb"}</Text>
               {me.presence === p ? <Text style={styles.check}>✓</Text> : null}
             </Pressable>
           ))}
-        </Glass>
+        </View>
 
         <Text style={styles.sec}>Workspaces</Text>
-        <Glass style={styles.group}>
+        <View style={styles.group}>
           {workspaces.map((ws) => (
             <Pressable key={ws.id} style={styles.row} onPress={() => void selectWorkspace(ws.id)}>
-              <View style={[styles.glyph, { backgroundColor: ws.iconColor || "rgba(255,255,255,0.12)" }]}>
+              <View style={[styles.glyph, { backgroundColor: ws.iconColor || colors.aubergine }]}>
                 <Text style={styles.glyphTxt}>{(ws.iconLetter || ws.name[0] || "W").toUpperCase()}</Text>
               </View>
               <View style={{ flex: 1 }}>
@@ -71,7 +71,7 @@ export function YouScreen() {
             .filter((account) => account.id !== (activeAccountId ?? me.id))
             .map((account) => (
               <Pressable key={account.id} style={styles.row} onPress={() => void switchAccount(account.id)}>
-                <View style={[styles.glyph, { backgroundColor: account.workspace?.iconColor || "rgba(255,255,255,0.12)" }]}>
+                <View style={[styles.glyph, { backgroundColor: account.workspace?.iconColor || colors.aubergine }]}>
                   <Text style={styles.glyphTxt}>
                     {(account.workspace?.iconLetter || account.name[0] || "W").toUpperCase()}
                   </Text>
@@ -89,16 +89,16 @@ export function YouScreen() {
             </View>
             <Text style={styles.rowTxt}>Add a workspace</Text>
           </Pressable>
-        </Glass>
+        </View>
 
         <Text style={styles.sec}>{workspace.name}</Text>
-        <Glass style={styles.group}>
+        <View style={styles.group}>
           <Row label="Workspace settings" onPress={() => nav.navigate("WorkspaceSettings")} />
           <Row label="Invites" onPress={() => nav.navigate("Invites")} />
           <Row label="Saved for later" onPress={() => nav.navigate("Later")} />
           <Row label="Files" onPress={() => nav.navigate("Files")} />
           <Row label="Threads" onPress={() => nav.navigate("Threads")} />
-        </Glass>
+        </View>
 
         <Pressable
           style={{ marginTop: 18 }}
@@ -115,12 +115,23 @@ export function YouScreen() {
             ]);
           }}
         >
-          <Glass style={styles.group}>
+          <View style={styles.group}>
             <Text style={[styles.rowTxt, styles.out]}>Sign out</Text>
-          </Glass>
+          </View>
         </Pressable>
+        </View>
       </ScrollView>
-    </View>
+      <FloatingWorkspaceChrome
+        compact={compact}
+        glyph={<WorkspaceGlyph workspace={workspace} size={compact ? 36 : 32} round={compact} />}
+        meName={me.displayName}
+        meImage={me.image}
+        mePresence={me.presence}
+        onWorkspacePress={() => nav.navigate("Home" as never)}
+        onCompose={() => nav.navigate("NewDm")}
+        onMe={() => nav.navigate("EditProfile")}
+      />
+    </ScreenCanvas>
   );
 }
 
@@ -134,22 +145,30 @@ function Row({ label, onPress }: { label: string; onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  head: { marginHorizontal: 12, borderRadius: radii.lg },
-  card: { padding: 16, borderRadius: radii.lg },
+  card: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.canvas,
+  },
   me: { flexDirection: "row", gap: 14, alignItems: "center" },
   name: { color: colors.ink, fontSize: 20, fontWeight: "800" },
   sub: { color: colors.muted, marginTop: 2 },
   sec: {
     color: colors.muted,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    fontSize: 12,
+    fontWeight: "700",
+    fontSize: 13,
     marginTop: 18,
     marginBottom: 8,
-    letterSpacing: 0.6,
   },
-  group: { borderRadius: radii.lg, overflow: "hidden" },
+  group: {
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.canvas,
+  },
   row: {
     minHeight: 52,
     paddingHorizontal: 16,
@@ -162,7 +181,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: "#4A154B",
+    backgroundColor: colors.aubergine,
     alignItems: "center",
     justifyContent: "center",
   },

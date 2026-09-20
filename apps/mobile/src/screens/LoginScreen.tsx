@@ -66,7 +66,7 @@ export function LoginScreen({
           <Image source={logo} style={styles.brandMark} />
           <Text style={styles.brand}>relay</Text>
         </View>
-        <Glass style={styles.card} variant="regular">
+        <Glass style={styles.card} variant="regular" colorScheme="dark">
           <Text style={styles.h1}>{add ? "Another account" : mode === "in" ? "Sign in" : "Create account"}</Text>
           {add ? <Text style={styles.sub}>Your current account stays signed in.</Text> : null}
           {error ? <Text style={styles.err}>{error}</Text> : null}
@@ -77,7 +77,7 @@ export function LoginScreen({
             <TextInput
               style={styles.input}
               placeholder="Full name"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.headerMuted}
               value={name}
               onChangeText={setName}
             />
@@ -87,7 +87,7 @@ export function LoginScreen({
             autoCapitalize="none"
             keyboardType="email-address"
             placeholder="Email"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.headerMuted}
             value={email}
             onChangeText={setEmail}
           />
@@ -95,7 +95,7 @@ export function LoginScreen({
             style={styles.input}
             secureTextEntry
             placeholder="Password"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.headerMuted}
             value={password}
             onChangeText={setPassword}
           />
@@ -123,25 +123,25 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", padding: 22 },
   brandRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 18, marginLeft: 8 },
   brandMark: { width: 36, height: 36, borderRadius: 18 },
-  brand: { color: colors.ink, fontSize: 28, fontWeight: "900" },
+  brand: { color: colors.headerInk, fontSize: 28, fontWeight: "900" },
   card: { padding: space.lg, borderRadius: radii.lg, gap: 10 },
-  h1: { color: colors.ink, fontSize: 28, fontWeight: "800", marginBottom: 8 },
-  sub: { color: colors.muted, marginBottom: 4 },
+  h1: { color: colors.headerInk, fontSize: 28, fontWeight: "800", marginBottom: 8 },
+  sub: { color: colors.headerMuted, marginBottom: 4 },
   err: { color: colors.pink, marginBottom: 4 },
   google: {
     height: 48,
     borderRadius: radii.sm,
     borderWidth: 1,
-    borderColor: colors.hairline,
+    borderColor: "rgba(255,255,255,0.28)",
     alignItems: "center",
     justifyContent: "center",
   },
-  googleTxt: { color: colors.ink, fontWeight: "700", fontSize: 16 },
+  googleTxt: { color: colors.headerInk, fontWeight: "700", fontSize: 16 },
   input: {
     height: 48,
     borderRadius: radii.sm,
     paddingHorizontal: 12,
-    color: colors.ink,
+    color: colors.headerInk,
     backgroundColor: "rgba(0,0,0,0.22)",
     fontSize: 16,
   },
@@ -153,5 +153,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ctaTxt: { color: "#fff", fontWeight: "800", fontSize: 16 },
-  switch: { color: colors.muted, textAlign: "center", marginTop: 6, fontWeight: "600" },
+  switch: { color: colors.headerMuted, textAlign: "center", marginTop: 6, fontWeight: "600" },
 });

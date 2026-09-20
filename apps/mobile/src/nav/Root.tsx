@@ -1,9 +1,8 @@
 import { useEffect } from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { DarkTheme, NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
+import { DefaultTheme, NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import * as Notifications from "expo-notifications";
-import { StatusBar } from "expo-status-bar";
 import type { PushNotificationData } from "@relay/shared";
 import { useAccounts } from "../lib/account-manager";
 import { navFromPush, openPendingIfReady, setPendingChannelOpener, setPendingNav } from "../lib/pending-nav";
@@ -31,15 +30,19 @@ const Tabs = createBottomTabNavigator<TabParamList>();
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 const theme = {
-  ...DarkTheme,
-  colors: { ...DarkTheme.colors, background: "transparent", card: "transparent" },
+  ...DefaultTheme,
+  colors: { ...DefaultTheme.colors, background: "#FFFFFF", card: "#FFFFFF" },
 };
 
 function TabNav() {
   return (
     <Tabs.Navigator
       tabBar={(props) => <GlassTabBar {...props} />}
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: "transparent" } }}
+      screenOptions={{
+        headerShown: false,
+        sceneStyle: { backgroundColor: "#FFFFFF" },
+        tabBarStyle: { position: "absolute", backgroundColor: "transparent", borderTopWidth: 0, elevation: 0 },
+      }}
     >
       <Tabs.Screen name="Home" component={HomeScreen} />
       <Tabs.Screen name="DMs" component={DmsScreen} />
@@ -80,11 +83,10 @@ export function RootNav() {
 
   return (
     <NavigationContainer ref={navigationRef} theme={theme}>
-      <StatusBar style="light" />
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: "transparent" },
+          contentStyle: { backgroundColor: "#FFFFFF" },
           animation: "slide_from_right",
         }}
       >

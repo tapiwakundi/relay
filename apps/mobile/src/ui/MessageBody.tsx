@@ -56,9 +56,9 @@ const styles = StyleSheet.create({
   strike: { textDecorationLine: "line-through" },
   code: {
     fontFamily: "Menlo",
-    backgroundColor: "rgba(0,0,0,0.28)",
+    backgroundColor: colors.inputFill,
     fontSize: 14,
   },
-  mention: { color: "#9EE7FF", fontWeight: "700" },
-  link: { color: "#9EE7FF", textDecorationLine: "underline" },
+  mention: { color: colors.accent, fontWeight: "700" },
+  link: { color: colors.accent, textDecorationLine: "underline" },
 });

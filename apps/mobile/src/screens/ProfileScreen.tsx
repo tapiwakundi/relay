@@ -1,18 +1,16 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";
 import { Avatar } from "../ui/Avatar";
-import { Glass } from "../ui/Glass";
-import { HeaderBtn, ScreenHeader } from "../ui/Header";
+import { HeaderBtn } from "../ui/Header";
+import { PageHeader, ScreenCanvas } from "../ui/SlackChrome";
 import { colors, radii, space } from "../ui/theme";
 import type { RootStackParamList } from "../nav/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Profile">;
 
 export function ProfileScreen({ navigation, route }: Props) {
-  const insets = useSafeAreaInsets();
   const { members, workspace, me } = useWorkspace();
   const member = members.find((m) => m.userId === route.params.userId);
   if (!member) return null;
@@ -26,12 +24,10 @@ export function ProfileScreen({ navigation, route }: Props) {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <Glass style={styles.head}>
-        <ScreenHeader title="Profile" left={<HeaderBtn label="‹" onPress={() => navigation.goBack()} />} />
-      </Glass>
+    <ScreenCanvas>
+      <PageHeader title="Profile" left={<HeaderBtn label="‹" onPress={() => navigation.goBack()} />} />
       <ScrollView contentContainerStyle={{ padding: space.md, paddingBottom: 40 }}>
-        <Glass style={styles.card}>
+        <View style={styles.card}>
           <Avatar name={member.displayName} image={member.image} size={96} presence={member.presence} />
           <Text style={styles.name}>
             {member.statusEmoji ? `${member.statusEmoji} ` : ""}
@@ -52,16 +48,14 @@ export function ProfileScreen({ navigation, route }: Props) {
               <Text style={styles.msgTxt}>Edit profile</Text>
             </Pressable>
           )}
-        </Glass>
+        </View>
       </ScrollView>
-    </View>
+    </ScreenCanvas>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  head: { marginHorizontal: 12, borderRadius: radii.lg },
-  card: { padding: 24, alignItems: "center", borderRadius: radii.lg, gap: 6 },
+  card: { padding: 24, alignItems: "center", gap: 6 },
   name: { color: colors.ink, fontSize: 28, fontWeight: "800", marginTop: 12, textAlign: "center" },
   title: { color: colors.ink, fontSize: 16 },
   meta: { color: colors.muted },

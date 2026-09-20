@@ -1,28 +1,26 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";
 import { ChatView } from "../ui/ChatView";
-import { Glass } from "../ui/Glass";
-import { HeaderBtn, ScreenHeader } from "../ui/Header";
-import { colors, radii } from "../ui/theme";
+import { HeaderBtn } from "../ui/Header";
+import { PageHeader, ScreenCanvas } from "../ui/SlackChrome";
+import { colors } from "../ui/theme";
 import type { RootStackParamList } from "../nav/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Channel">;
 
 export function ChannelScreen({ navigation, route }: Props) {
-  const insets = useSafeAreaInsets();
   const { channelById, me } = useWorkspace();
   const channel = channelById(route.params.channelId);
   const [busy, setBusy] = useState(false);
 
   if (!channel) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top }]}>
+      <ScreenCanvas>
         <Text style={styles.miss}>Channel missing</Text>
-      </View>
+      </ScreenCanvas>
     );
   }
 
@@ -40,24 +38,22 @@ export function ChannelScreen({ navigation, route }: Props) {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <Glass style={styles.head}>
-        <ScreenHeader
-          title={title}
-          subtitle={channel.topic ?? (channel.isDm ? "Direct message" : `${channel.memberCount} members`)}
-          left={<HeaderBtn label="‹" onPress={() => navigation.goBack()} />}
-          right={<HeaderBtn label={inHuddle ? "Leave" : "Huddle"} onPress={() => void huddle()} />}
-        />
-      </Glass>
+    <ScreenCanvas>
+      <PageHeader
+        title={title}
+        subtitle={channel.topic ?? (channel.isDm ? "Direct message" : `${channel.memberCount} members`)}
+        left={<HeaderBtn label="‹" onPress={() => navigation.goBack()} />}
+        right={<HeaderBtn label={inHuddle ? "Leave" : "Huddle"} onPress={() => void huddle()} />}
+      />
       {channel.huddle?.active ? (
-        <Glass style={styles.huddle}>
+        <View style={styles.huddle}>
           <Text style={styles.huddleTxt}>
             {channel.huddle.participants.length} in huddle · audio is on desktop/web for now
           </Text>
           <Pressable onPress={() => void huddle()} disabled={busy}>
             <Text style={styles.huddleBtn}>{inHuddle ? "Leave" : "Join"}</Text>
           </Pressable>
-        </Glass>
+        </View>
       ) : null}
       <ChatView
         channel={channel}
@@ -65,20 +61,20 @@ export function ChannelScreen({ navigation, route }: Props) {
         onOpenThread={(msg) => navigation.navigate("Thread", { channelId: channel.id, parentId: msg.id })}
         onOpenProfile={(userId) => navigation.navigate("Profile", { userId })}
       />
-    </View>
+    </ScreenCanvas>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  head: { marginHorizontal: 12, marginBottom: 8, borderRadius: radii.lg },
   miss: { color: colors.ink, padding: 24 },
   huddle: {
     marginHorizontal: 12,
-    marginBottom: 8,
+    marginVertical: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: radii.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

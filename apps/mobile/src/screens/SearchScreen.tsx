@@ -2,20 +2,18 @@ import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { SearchHit } from "@relay/shared";
 import { api } from "../lib/auth";
 import { keys } from "../lib/query";
 import { useWorkspace } from "../lib/workspace";
-import { Glass } from "../ui/Glass";
-import { HeaderBtn, ScreenHeader } from "../ui/Header";
+import { HeaderBtn } from "../ui/Header";
+import { PageHeader, ScreenCanvas } from "../ui/SlackChrome";
 import { colors, radii, space } from "../ui/theme";
 import type { RootStackParamList } from "../nav/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Search">;
 
 export function SearchScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
   const { workspace } = useWorkspace();
   const [q, setQ] = useState("");
   const results = useQuery({
@@ -25,9 +23,9 @@ export function SearchScreen({ navigation }: Props) {
   });
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <Glass style={styles.head}>
-        <ScreenHeader title="Search" left={<HeaderBtn label="‹" onPress={() => navigation.goBack()} />} />
+    <ScreenCanvas>
+      <PageHeader title="Search" left={<HeaderBtn label="‹" onPress={() => navigation.goBack()} />} />
+      <View style={{ paddingHorizontal: 16, paddingBottom: 10 }}>
         <TextInput
           style={styles.input}
           placeholder="Search messages, people, channels"
@@ -36,7 +34,7 @@ export function SearchScreen({ navigation }: Props) {
           onChangeText={setQ}
           autoFocus
         />
-      </Glass>
+      </View>
       <ScrollView contentContainerStyle={{ padding: space.md, gap: 8 }}>
         {(results.data?.hits ?? []).map((hit) => (
           <Pressable
@@ -49,31 +47,28 @@ export function SearchScreen({ navigation }: Props) {
               }
             }}
           >
-            <Glass style={styles.card}>
+            <View style={styles.card}>
               <Text style={styles.kind}>{hit.kind}</Text>
               <Text style={styles.title}>{hit.title}</Text>
               {hit.snippet ? <Text style={styles.snip}>{hit.snippet}</Text> : null}
-            </Glass>
+            </View>
           </Pressable>
         ))}
       </ScrollView>
-    </View>
+    </ScreenCanvas>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  head: { marginHorizontal: 12, borderRadius: radii.lg, paddingBottom: 10 },
   input: {
-    marginHorizontal: 12,
     height: 44,
     borderRadius: radii.sm,
     paddingHorizontal: 12,
     color: colors.ink,
-    backgroundColor: "rgba(0,0,0,0.22)",
+    backgroundColor: colors.inputFill,
     fontSize: 16,
   },
-  card: { padding: 14, borderRadius: radii.md },
+  card: { padding: 14, borderRadius: radii.md, borderWidth: 1, borderColor: colors.hairline },
   kind: { color: colors.muted, fontSize: 11, fontWeight: "800", textTransform: "uppercase" },
   title: { color: colors.ink, fontWeight: "800", fontSize: 16 },
   snip: { color: colors.muted, marginTop: 4 },

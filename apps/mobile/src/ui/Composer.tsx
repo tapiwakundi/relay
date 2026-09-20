@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { wrapSelection } from "../lib/format";
 import { colors, radii, space } from "./theme";
-import { Glass } from "./Glass";
 
 export function Composer({
   placeholder,
@@ -31,7 +30,7 @@ export function Composer({
   }
 
   return (
-    <Glass style={styles.wrap} variant="regular" interactive>
+    <View style={styles.wrap}>
       <View style={styles.tools}>
         <Tool label="B" onPress={() => wrap("*")} />
         <Tool label="I" onPress={() => wrap("_")} />
@@ -54,7 +53,7 @@ export function Composer({
           <Text style={styles.sendTxt}>Send</Text>
         </Pressable>
       </View>
-    </Glass>
+    </View>
   );
 }
 
@@ -67,7 +66,13 @@ function Tool({ label, onPress }: { label: string; onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { padding: 8, borderRadius: radii.lg },
+  wrap: {
+    padding: 8,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.canvas,
+  },
   tools: { flexDirection: "row", gap: 6, marginBottom: 6, paddingHorizontal: 4 },
   tool: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: radii.sm },
   toolTxt: { color: colors.ink, fontWeight: "800", fontSize: 13 },

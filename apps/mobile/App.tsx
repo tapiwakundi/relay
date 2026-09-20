@@ -12,7 +12,6 @@ import { WorkspaceProvider } from "./src/lib/workspace";
 import { RootNav } from "./src/nav/Root";
 import { CreateWorkspaceScreen } from "./src/screens/CreateWorkspaceScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
-import { Wallpaper } from "./src/ui/Wallpaper";
 import { colors } from "./src/ui/theme";
 
 export default function App() {
@@ -22,7 +21,6 @@ export default function App() {
         <QueryClientProvider client={queryClient}>
           <AccountManager>
             <View style={styles.root}>
-              <Wallpaper />
               <Gate />
             </View>
           </AccountManager>
@@ -84,13 +82,13 @@ function Splash() {
     <View style={styles.splash}>
       <StatusBar style="light" />
       <Image source={require("./assets/icon.png")} style={styles.splashMark} />
-      <ActivityIndicator color={colors.ink} />
+      <ActivityIndicator color={colors.headerInk} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#1A0828" },
-  splash: { flex: 1, alignItems: "center", justifyContent: "center", gap: 18 },
+  root: { flex: 1, backgroundColor: colors.canvas },
+  splash: { flex: 1, alignItems: "center", justifyContent: "center", gap: 18, backgroundColor: colors.aubergine },
   splashMark: { width: 88, height: 88, borderRadius: 44 },
 });

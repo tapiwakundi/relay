@@ -2,23 +2,22 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ActivityItem } from "@relay/shared";
 import { api } from "../lib/auth";
 import { formatTime } from "../lib/format";
 import { keys } from "../lib/query";
 import { useWorkspace } from "../lib/workspace";
 import { Avatar } from "../ui/Avatar";
-import { Glass } from "../ui/Glass";
-import { ScreenHeader } from "../ui/Header";
+import { WorkspaceGlyph } from "../ui/Glyph";
 import { MessageBody } from "../ui/MessageBody";
-import { colors, radii, space } from "../ui/theme";
+import { FloatingWorkspaceChrome, ScreenCanvas, ScrollingHero, useCompactScroll } from "../ui/SlackChrome";
+import { colors } from "../ui/theme";
 import type { RootStackParamList } from "../nav/types";
 
 export function ActivityScreen() {
-  const insets = useSafeAreaInsets();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { workspace } = useWorkspace();
+  const { workspace, me } = useWorkspace();
+  const { compact, onScroll, scrollEventThrottle } = useCompactScroll();
   const q = useQuery({
     queryKey: keys.activity(workspace.id),
     queryFn: () => api<{ items: ActivityItem[] }>("/api/activity"),
@@ -26,44 +25,48 @@ export function ActivityScreen() {
   const items = q.data?.items ?? [];
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <Glass style={styles.head}>
-        <ScreenHeader title="Activity" />
-      </Glass>
-      <ScrollView contentContainerStyle={{ padding: space.md, paddingBottom: 120 }}>
+    <ScreenCanvas>
+      <ScrollView
+        scrollEventThrottle={scrollEventThrottle}
+        onScroll={onScroll}
+        contentContainerStyle={{ paddingBottom: 120 }}
+      >
+        <ScrollingHero title="Activity" />
         {!items.length ? <Text style={styles.empty}>Mentions, reactions, and thread replies land here.</Text> : null}
         {items.map((item) => (
-          <Pressable
-            key={item.id}
-            onPress={() => nav.navigate("Channel", { channelId: item.channelId })}
-            style={{ marginBottom: 10 }}
-          >
-            <Glass style={styles.card}>
-              <Text style={styles.kind}>
-                {item.kind === "mention" ? "Mentioned you" : item.kind === "reaction" ? `Reacted ${item.emoji ?? ""}` : "Thread reply"} · #
-                {item.channelName} · {formatTime(item.at)}
-              </Text>
-              <View style={styles.row}>
-                <Avatar name={item.message.userName} image={item.message.userImage} size={32} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.name}>{item.message.userName}</Text>
-                  <MessageBody body={item.message.body} />
-                </View>
+          <Pressable key={item.id} onPress={() => nav.navigate("Channel", { channelId: item.channelId })} style={styles.card}>
+            <Text style={styles.kind}>
+              {item.kind === "mention" ? "Mentioned you" : item.kind === "reaction" ? `Reacted ${item.emoji ?? ""}` : "Thread reply"} · #
+              {item.channelName} · {formatTime(item.at)}
+            </Text>
+            <View style={styles.row}>
+              <Avatar name={item.message.userName} image={item.message.userImage} size={32} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.name}>{item.message.userName}</Text>
+                <MessageBody body={item.message.body} />
               </View>
-            </Glass>
+            </View>
           </Pressable>
         ))}
       </ScrollView>
-    </View>
+      <FloatingWorkspaceChrome
+        compact={compact}
+        glyph={<WorkspaceGlyph workspace={workspace} size={compact ? 36 : 32} round={compact} />}
+        meName={me.displayName}
+        meImage={me.image}
+        mePresence={me.presence}
+        onWorkspacePress={() => nav.navigate("Home" as never)}
+        onCompose={() => nav.navigate("NewDm")}
+        onMe={() => nav.navigate("EditProfile")}
+      />
+    </ScreenCanvas>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  head: { marginHorizontal: 12, borderRadius: radii.lg },
-  card: { padding: 12, borderRadius: radii.md },
+  card: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.hairline },
   kind: { color: colors.muted, fontSize: 12, fontWeight: "700", marginBottom: 8 },
   row: { flexDirection: "row", gap: 10 },
   name: { color: colors.ink, fontWeight: "800", marginBottom: 2 },
-  empty: { color: colors.muted, padding: 12 },
+  empty: { color: colors.muted, padding: 16 },
 });

@@ -2,20 +2,18 @@ import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../lib/auth";
 import { keys, queryClient } from "../lib/query";
 import { useWorkspace } from "../lib/workspace";
 import { Avatar } from "../ui/Avatar";
-import { Glass } from "../ui/Glass";
-import { HeaderBtn, ScreenHeader } from "../ui/Header";
+import { HeaderBtn } from "../ui/Header";
+import { PageHeader, ScreenCanvas } from "../ui/SlackChrome";
 import { colors, radii, space } from "../ui/theme";
 import type { RootStackParamList } from "../nav/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "EditProfile">;
 
 export function EditProfileScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
   const { me } = useWorkspace();
   const [displayName, setDisplayName] = useState(me.displayName);
   const [title, setTitle] = useState(me.title ?? "");
@@ -55,16 +53,14 @@ export function EditProfileScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <Glass style={styles.head}>
-        <ScreenHeader
-          title="Edit profile"
-          left={<HeaderBtn label="‹" onPress={() => navigation.goBack()} />}
-          right={<HeaderBtn label="Save" onPress={() => void save()} />}
-        />
-      </Glass>
+    <ScreenCanvas>
+      <PageHeader
+        title="Edit profile"
+        left={<HeaderBtn label="‹" onPress={() => navigation.goBack()} />}
+        right={<HeaderBtn label="Save" onPress={() => void save()} />}
+      />
       <ScrollView contentContainerStyle={{ padding: space.md }}>
-        <Glass style={styles.card}>
+        <View style={styles.card}>
           <Pressable onPress={() => void pickPhoto()} style={{ alignSelf: "center" }}>
             <Avatar name={displayName} image={me.image} size={88} />
           </Pressable>
@@ -74,9 +70,9 @@ export function EditProfileScreen({ navigation }: Props) {
           <Field label="Title" value={title} onChange={setTitle} />
           <Field label="Status emoji" value={statusEmoji} onChange={setStatusEmoji} />
           <Field label="Status" value={statusText} onChange={setStatusText} />
-        </Glass>
+        </View>
       </ScrollView>
-    </View>
+    </ScreenCanvas>
   );
 }
 
@@ -90,8 +86,6 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  head: { marginHorizontal: 12, borderRadius: radii.lg },
   card: { padding: space.lg, borderRadius: radii.lg, gap: 10 },
   hint: { color: colors.muted, textAlign: "center" },
   err: { color: colors.pink },
@@ -101,7 +95,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     paddingHorizontal: 12,
     color: colors.ink,
-    backgroundColor: "rgba(0,0,0,0.22)",
+    backgroundColor: colors.inputFill,
     fontSize: 16,
   },
 });

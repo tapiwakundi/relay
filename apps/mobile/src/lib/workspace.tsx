@@ -8,6 +8,7 @@ import { api } from "./auth";
 import { applyWsEvent, keys, queryClient, setActiveWorkspaceId, type Bootstrap, type Me, type MeResponse } from "./query";
 import { peekPendingNav } from "./pending-nav";
 import { addRealtimeListener, sendRealtime } from "./realtime-hub";
+import { colors } from "../ui/theme";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -98,7 +99,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   if (!value) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator color="#fff" />
+        <ActivityIndicator color={colors.aubergine} />
       </View>
     );
   }
