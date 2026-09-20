@@ -32,6 +32,7 @@ export type AccountProfile = {
   activeWorkspaceId?: string | null;
   unreadTotal?: number;
   mentionTotal?: number;
+  workspace?: RelayAccountSummary["workspace"];
 };
 
 function emptyState(): AccountVaultState {
@@ -66,6 +67,7 @@ function summaryOf(account: AccountRecord): RelayAccountSummary {
     activeWorkspaceId: account.activeWorkspaceId,
     unreadTotal: account.unreadTotal,
     mentionTotal: account.mentionTotal,
+    workspace: account.workspace ?? null,
   };
 }
 
@@ -138,7 +140,7 @@ export function createAccountVault(backend: AccountVaultBackend) {
     },
     beginAdd() {
       const state = load();
-      if (state.adding) throw new Error("Already adding an account");
+      if (state.adding) return;
       state.adding = true;
       state.pendingBlobs = {};
       save(state);
@@ -168,6 +170,7 @@ export function createAccountVault(backend: AccountVaultBackend) {
         activeWorkspaceId: profile.activeWorkspaceId ?? existing?.activeWorkspaceId ?? null,
         unreadTotal: profile.unreadTotal ?? existing?.unreadTotal ?? 0,
         mentionTotal: profile.mentionTotal ?? existing?.mentionTotal ?? 0,
+        workspace: profile.workspace ?? existing?.workspace ?? null,
         blobs: { ...(existing?.blobs ?? {}), ...blobs },
       };
       state.accounts[profile.id] = record;
@@ -197,6 +200,7 @@ export function createAccountVault(backend: AccountVaultBackend) {
       if (patch.activeWorkspaceId !== undefined) account.activeWorkspaceId = patch.activeWorkspaceId;
       if (patch.unreadTotal != null) account.unreadTotal = patch.unreadTotal;
       if (patch.mentionTotal != null) account.mentionTotal = patch.mentionTotal;
+      if (patch.workspace !== undefined) account.workspace = patch.workspace;
       save(state);
     },
     remove(id: string): string | null {

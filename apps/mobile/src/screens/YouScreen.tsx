@@ -53,41 +53,43 @@ export function YouScreen() {
           ))}
         </Glass>
 
-        <Text style={styles.sec}>Accounts</Text>
-        {(accounts.length ? accounts : [{ id: me.id, email: me.email, name: me.displayName, image: me.image, activeWorkspaceId: workspace.id, unreadTotal: 0, mentionTotal: 0 }]).map((account) => {
-          const mine = account.id === (activeAccountId ?? me.id);
-          return (
-            <View key={account.id} style={{ marginBottom: 10 }}>
-              <Text style={styles.acct}>{account.email || account.name}{account.unreadTotal ? `  ${account.unreadTotal}` : ""}</Text>
-              <Glass style={styles.group}>
-                {mine
-                  ? workspaces.map((ws) => (
-                      <Pressable
-                        key={ws.id}
-                        style={styles.row}
-                        onPress={() => {
-                          void selectWorkspace(ws.id);
-                        }}
-                      >
-                        <Text style={styles.rowTxt}>{ws.name}</Text>
-                        {ws.id === workspace.id ? <Text style={styles.check}>✓</Text> : <Text style={styles.chev}>›</Text>}
-                      </Pressable>
-                    ))
-                  : (
-                      <Pressable style={styles.row} onPress={() => void switchAccount(account.id)}>
-                        <Text style={styles.rowTxt}>Switch to this account</Text>
-                        <Text style={styles.chev}>›</Text>
-                      </Pressable>
-                    )}
-              </Glass>
+        <Text style={styles.sec}>Workspaces</Text>
+        <Glass style={styles.group}>
+          {workspaces.map((ws) => (
+            <Pressable key={ws.id} style={styles.row} onPress={() => void selectWorkspace(ws.id)}>
+              <View style={[styles.glyph, { backgroundColor: ws.iconColor || "rgba(255,255,255,0.12)" }]}>
+                <Text style={styles.glyphTxt}>{(ws.iconLetter || ws.name[0] || "W").toUpperCase()}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowTxt}>{ws.name}</Text>
+                <Text style={styles.slug}>{ws.slug}</Text>
+              </View>
+              {ws.id === workspace.id ? <Text style={styles.check}>✓</Text> : null}
+            </Pressable>
+          ))}
+          {accounts
+            .filter((account) => account.id !== (activeAccountId ?? me.id))
+            .map((account) => (
+              <Pressable key={account.id} style={styles.row} onPress={() => void switchAccount(account.id)}>
+                <View style={[styles.glyph, { backgroundColor: account.workspace?.iconColor || "rgba(255,255,255,0.12)" }]}>
+                  <Text style={styles.glyphTxt}>
+                    {(account.workspace?.iconLetter || account.name[0] || "W").toUpperCase()}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowTxt}>{account.workspace?.name || account.name}</Text>
+                  <Text style={styles.slug}>{account.workspace?.slug || account.email}</Text>
+                </View>
+                <Text style={styles.chev}>›</Text>
+              </Pressable>
+            ))}
+          <Pressable style={styles.row} onPress={() => nav.navigate("AddWorkspace")}>
+            <View style={styles.glyph}>
+              <Text style={styles.glyphTxt}>+</Text>
             </View>
-          );
-        })}
-        <Pressable onPress={() => nav.navigate("AddWorkspace")}>
-          <Glass style={styles.group}>
-            <Text style={[styles.rowTxt, { padding: 16 }]}>Add a workspace</Text>
-          </Glass>
-        </Pressable>
+            <Text style={styles.rowTxt}>Add a workspace</Text>
+          </Pressable>
+        </Glass>
 
         <Text style={styles.sec}>{workspace.name}</Text>
         <Glass style={styles.group}>
@@ -149,21 +151,25 @@ const styles = StyleSheet.create({
   },
   group: { borderRadius: radii.lg, overflow: "hidden" },
   row: {
-    minHeight: 48,
+    minHeight: 52,
     paddingHorizontal: 16,
+    gap: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+  glyph: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: "#4A154B",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  glyphTxt: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  slug: { color: colors.muted, fontSize: 13, marginTop: 1 },
   rowTxt: { color: colors.ink, fontSize: 16, fontWeight: "600" },
   chev: { color: colors.faint, fontSize: 22 },
   check: { color: colors.green, fontWeight: "800" },
-  acct: {
-    color: colors.muted,
-    fontWeight: "700",
-    fontSize: 12,
-    marginBottom: 6,
-    marginLeft: 4,
-  },
   out: { color: colors.pink, padding: 16, fontWeight: "800" },
 });

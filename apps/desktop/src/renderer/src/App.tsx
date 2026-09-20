@@ -22,6 +22,7 @@ import { Composer } from "./components/Composer";
 import { MessageList } from "./components/MessageList";
 import { CreateWorkspaceScreen } from "./components/CreateWorkspaceScreen";
 import {
+  AddWorkspaceDialog,
   ChannelDialog,
   ChannelInfoDialog,
   HelpDialog,
@@ -50,8 +51,10 @@ import {
   MicOff,
   MoreIcon,
   Pencil,
+  Plus,
   Screen,
   SearchIcon,
+  Settings,
   Users,
   Video,
 } from "./components/Icons";
@@ -67,6 +70,7 @@ type Dialog =
   | "self"
   | "workspace"
   | "workspace-settings"
+  | "switcher"
   | null;
 
 export function WorkspaceApp() {
@@ -77,8 +81,7 @@ export function WorkspaceApp() {
   const [rail, setRail] = useState<"home" | "dms" | "activity" | "files" | "later">("home");
   const [homeView, setHomeView] = useState<HomeView>("channels");
   const [switcher, setSwitcher] = useState(false);
-  const [addWorkspace, setAddWorkspace] = useState<null | "choose" | "create">(null);
-  const [newWorkspaceName, setNewWorkspaceName] = useState("");
+  const [addWorkspace, setAddWorkspace] = useState(false);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [typing, setTyping] = useState<string | null>(null);
   const [inHuddle, setInHuddle] = useState(false);
@@ -93,6 +96,10 @@ export function WorkspaceApp() {
   const roomRef = useRef<Room | null>(null);
   const meIdRef = useRef<string | null>(null);
   const activeIdRef = useRef<string | null>(null);
+  const switcherRowsRef = useRef<Array<{ accountId: string; workspaceId: string | null }>>([]);
+  const openSwitcherItemRef = useRef<(item: { accountId: string; workspaceId: string | null }) => Promise<void>>(
+    async () => undefined,
+  );
 
   const meQuery = useQuery({
     queryKey: keys.me,
@@ -322,6 +329,14 @@ export function WorkspaceApp() {
         setThread(null);
         setProfile(null);
         setDialog(null);
+        setAddWorkspace(false);
+      }
+      if ((e.metaKey || e.ctrlKey) && /^[1-9]$/.test(e.key)) {
+        const item = switcherRowsRef.current[Number(e.key) - 1];
+        if (item) {
+          e.preventDefault();
+          void openSwitcherItemRef.current(item);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -577,9 +592,62 @@ export function WorkspaceApp() {
     setRail("home");
     setHomeView("channels");
     qc.removeQueries({ queryKey: ["bootstrap"] });
-    qc.removeQueries({ queryKey: ["messages"] });
     await qc.invalidateQueries({ queryKey: keys.me });
   }
+
+  const switcherRows = useMemo(() => {
+    const meId = activeAccountId ?? me?.id ?? "";
+    const rows: Array<{
+      key: string;
+      accountId: string;
+      workspaceId: string | null;
+      name: string;
+      subtitle: string;
+      glyph: Pick<Workspace, "name" | "iconColor" | "iconLetter" | "iconUrl">;
+      active: boolean;
+    }> = [];
+    for (const ws of workspaces) {
+      rows.push({
+        key: `${meId}:${ws.id}`,
+        accountId: meId,
+        workspaceId: ws.id,
+        name: ws.name,
+        subtitle: ws.slug,
+        glyph: ws,
+        active: ws.id === workspace?.id,
+      });
+    }
+    for (const account of accounts) {
+      if (account.id === meId) continue;
+      const preview = account.workspace;
+      rows.push({
+        key: account.id,
+        accountId: account.id,
+        workspaceId: preview?.id ?? account.activeWorkspaceId,
+        name: preview?.name || account.name,
+        subtitle: preview?.slug || account.email,
+        glyph: preview ?? {
+          name: account.name,
+          iconColor: "#4A154B",
+          iconLetter: (account.name[0] || "W").toUpperCase(),
+          iconUrl: null,
+        },
+        active: false,
+      });
+    }
+    return rows;
+  }, [accounts, activeAccountId, me?.id, workspace?.id, workspaces]);
+
+  async function openSwitcherItem(item: { accountId: string; workspaceId: string | null }) {
+    setDialog(null);
+    if (item.accountId && item.accountId !== (activeAccountId ?? me?.id)) {
+      await window.relayDesktop.switchAccount(item.accountId);
+      return;
+    }
+    if (item.workspaceId) await switchWorkspace(item.workspaceId);
+  }
+  switcherRowsRef.current = switcherRows;
+  openSwitcherItemRef.current = openSwitcherItem;
 
   const starred = channels.filter((c) => c.isStarred && !c.isDm);
   const chans = channels.filter((c) => !c.isDm && !c.isStarred);
@@ -658,7 +726,7 @@ export function WorkspaceApp() {
       </header>
 
       <nav className="rail">
-        <WorkspaceGlyph workspace={workspace} title={workspace.name} onClick={() => setDialog("workspace")} />
+        <WorkspaceGlyph workspace={workspace} title={workspace.name} onClick={() => setDialog("switcher")} />
         <div className="rail-nav">
           <RailBtn
             icon={<HomeIcon />}
@@ -702,13 +770,18 @@ export function WorkspaceApp() {
 
       <aside className="sidebar">
         <div className="sb-head">
-          <h2 onClick={() => setDialog("workspace")}>
+          <h2 onClick={() => setDialog("switcher")}>
             {workspace.name}
             <Chevron size={16} strokeWidth={2.2} />
           </h2>
-          <button className="compose-fab" title="New message" onClick={() => setDialog("dm")}>
-            <Pencil size={16} />
-          </button>
+          <div className="sb-head-actions">
+            <button className="sb-icon-btn" title="Workspace settings" onClick={() => setDialog("workspace")}>
+              <Settings size={18} />
+            </button>
+            <button className="compose-fab" title="New message" onClick={() => setDialog("dm")}>
+              <Pencil size={16} />
+            </button>
+          </div>
         </div>
         <div className="sb-scroll">
           {rail === "home" && homeView === "channels" && (
@@ -1113,6 +1186,45 @@ export function WorkspaceApp() {
           onClose={() => setDialog(null)}
         />
       )}
+      {dialog === "switcher" && (
+        <div className="modal-bg switcher-bg" onClick={() => setDialog(null)}>
+          <div className="ws-switcher" onClick={(e) => e.stopPropagation()} role="menu">
+            {switcherRows.map((item, index) => (
+              <button
+                key={item.key}
+                type="button"
+                className={`ws-switcher-row${item.active ? " active" : ""}`}
+                onClick={() => void openSwitcherItem(item)}
+              >
+                <span className={`ws-switcher-ico${item.active ? " on" : ""}`}>
+                  <WorkspaceGlyph className="in-switcher" workspace={item.glyph} />
+                </span>
+                <span className="ws-switcher-copy">
+                  <strong>{item.name}</strong>
+                  <em>{item.subtitle}</em>
+                </span>
+                {index < 9 ? <kbd>⌘{index + 1}</kbd> : null}
+              </button>
+            ))}
+            <div className="ws-switcher-sep" />
+            <button
+              type="button"
+              className="ws-switcher-row"
+              onClick={() => {
+                setDialog(null);
+                setAddWorkspace(true);
+              }}
+            >
+              <span className="ws-switcher-ico add">
+                <Plus size={20} />
+              </span>
+              <span className="ws-switcher-copy">
+                <strong>Add a workspace</strong>
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
       {dialog === "workspace" && (
         <div className="modal-bg" onClick={() => setDialog(null)}>
           <div className="menu workspace-menu" onClick={(e) => e.stopPropagation()}>
@@ -1129,47 +1241,6 @@ export function WorkspaceApp() {
             <button onClick={() => openProfile(me.id)}>Profile</button>
             <button onClick={() => setDialog("help")}>Keyboard shortcuts</button>
             <hr />
-            <div className="title" style={{ padding: "4px 12px" }}>
-              Accounts
-            </div>
-            {(accounts.length ? accounts : [{ id: me.id, email: me.email, name: me.name, image: me.image, activeWorkspaceId: workspace.id, unreadTotal: 0, mentionTotal: 0 }]).map((account) => {
-              const mine = account.id === (activeAccountId ?? me.id);
-              return (
-                <div key={account.id} className="account-group">
-                  <div className="account-group-email">
-                    {account.email || account.name}
-                    {account.unreadTotal ? ` · ${account.unreadTotal}` : ""}
-                    {mine ? " · active" : ""}
-                  </div>
-                  {mine
-                    ? workspaces.map((ws) => (
-                        <button
-                          key={ws.id}
-                          onClick={() => {
-                            void switchWorkspace(ws.id);
-                            setDialog(null);
-                          }}
-                        >
-                          {ws.name}
-                          {ws.id === workspace.id ? " ✓" : ""}
-                          {ws.unreadTotal ? ` (${ws.unreadTotal})` : ""}
-                        </button>
-                      ))
-                    : (
-                        <button
-                          onClick={() => {
-                            void window.relayDesktop.switchAccount(account.id);
-                            setDialog(null);
-                          }}
-                        >
-                          Switch to this account
-                        </button>
-                      )}
-                </div>
-              );
-            })}
-            <button onClick={() => setAddWorkspace("choose")}>Add a workspace</button>
-            <hr />
             <button
               onClick={async () => {
                 await signOut();
@@ -1181,68 +1252,41 @@ export function WorkspaceApp() {
         </div>
       )}
       {addWorkspace ? (
-        <div className="modal-bg" onClick={() => setAddWorkspace(null)}>
-          <div className="dialog" onClick={(e) => e.stopPropagation()}>
-            {addWorkspace === "choose" ? (
-              <>
-                <h3>Add a workspace</h3>
-                <p className="sub" style={{ marginTop: 0 }}>
-                  Create one with {me.email || "this account"}, or sign in with a different account.
-                </p>
-                <button
-                  className="btn-primary"
-                  type="button"
-                  onClick={() => setAddWorkspace("create")}
-                >
-                  Create with this account
-                </button>
-                <button
-                  type="button"
-                  className="btn-google"
-                  style={{ marginTop: 8, width: "100%" }}
-                  onClick={() => {
-                    setAddWorkspace(null);
-                    setDialog(null);
-                    void window.relayDesktop.startAddAccount();
-                  }}
-                >
-                  Sign in with another account
-                </button>
-              </>
-            ) : (
-              <>
-                <h3>Create a workspace</h3>
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    const created = await api<{ workspace: Workspace }>("/api/workspaces", {
-                      method: "POST",
-                      body: JSON.stringify({ name: newWorkspaceName }),
-                    });
-                    await api(`/api/workspaces/${created.workspace.id}/select`, { method: "POST" });
-                    setActiveWorkspaceId(created.workspace.id);
-                    setNewWorkspaceName("");
-                    setAddWorkspace(null);
-                    setActiveId(null);
-                    setThread(null);
-                    await qc.invalidateQueries({ queryKey: keys.me });
-                  }}
-                >
-                  <input
-                    autoFocus
-                    placeholder="Workspace name"
-                    value={newWorkspaceName}
-                    onChange={(e) => setNewWorkspaceName(e.target.value)}
-                    required
-                  />
-                  <button type="submit" className="btn-primary">
-                    Create
-                  </button>
-                </form>
-              </>
-            )}
-          </div>
-        </div>
+        <AddWorkspaceDialog
+          workspaces={workspaces}
+          currentWorkspaceId={workspace.id}
+          onSignInOther={() => {
+            setAddWorkspace(false);
+            setDialog(null);
+            void window.relayDesktop.startAddAccount();
+          }}
+          onSelectWorkspace={async (id) => {
+            await switchWorkspace(id);
+            setAddWorkspace(false);
+          }}
+          onCreate={async (name) => {
+            const created = await api<{ workspace: Workspace }>("/api/workspaces", {
+              method: "POST",
+              body: JSON.stringify({ name }),
+            });
+            await api(`/api/workspaces/${created.workspace.id}/select`, { method: "POST" });
+            setActiveWorkspaceId(created.workspace.id);
+            setActiveId(null);
+            setThread(null);
+            setAddWorkspace(false);
+            await qc.invalidateQueries({ queryKey: keys.me });
+          }}
+          onJoinInvite={async (token) => {
+            const res = await api<{ workspace: Workspace }>("/api/invites/accept", {
+              method: "POST",
+              body: JSON.stringify({ token }),
+            });
+            if (res.workspace?.id) await switchWorkspace(res.workspace.id);
+            setAddWorkspace(false);
+            await qc.invalidateQueries({ queryKey: keys.me });
+          }}
+          onClose={() => setAddWorkspace(false)}
+        />
       ) : null}
       {dialog === "workspace-settings" && (
         <WorkspaceSettingsDialog

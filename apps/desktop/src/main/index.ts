@@ -46,21 +46,28 @@ function authMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+function beginAddIfRequested(add?: boolean) {
+  if (!add) return false;
+  const already = accountsSnapshot().adding;
+  beginAddAccount();
+  return !already;
+}
+
 ipcMain.handle(relayChannels.api, (_event, request: ApiRequest) => proxyApi(request));
 ipcMain.handle(relayChannels.signInEmail, async (_event, email: unknown, password: unknown, options?: AuthMode) => {
   if (typeof email !== "string" || typeof password !== "string") {
     return { error: { message: "Email and password are required" } };
   }
+  const startedAdd = beginAddIfRequested(options?.add);
   try {
-    if (options?.add) beginAddAccount();
     const result = await authClient.signIn.email({ email, password });
     if (result.error) {
-      if (options?.add) cancelAddAccount();
+      if (startedAdd) cancelAddAccount();
       return { error: { message: result.error.message || "Couldn’t sign in" } };
     }
     return completeAuth();
   } catch (error) {
-    if (options?.add) cancelAddAccount();
+    if (startedAdd) cancelAddAccount();
     return { error: { message: authMessage(error, "Couldn’t sign in") } };
   }
 });
@@ -68,27 +75,27 @@ ipcMain.handle(relayChannels.signUpEmail, async (_event, name: unknown, email: u
   if (typeof name !== "string" || typeof email !== "string" || typeof password !== "string") {
     return { error: { message: "Name, email, and password are required" } };
   }
+  const startedAdd = beginAddIfRequested(options?.add);
   try {
-    if (options?.add) beginAddAccount();
     const result = await authClient.signUp.email({ name, email, password });
     if (result.error) {
-      if (options?.add) cancelAddAccount();
+      if (startedAdd) cancelAddAccount();
       return { error: { message: result.error.message || "Couldn’t create account" } };
     }
     return completeAuth();
   } catch (error) {
-    if (options?.add) cancelAddAccount();
+    if (startedAdd) cancelAddAccount();
     return { error: { message: authMessage(error, "Couldn’t create account") } };
   }
 });
 ipcMain.handle(relayChannels.requestAuth, async (_event, options?: { provider?: string; add?: boolean }) => {
-  if (options?.add) beginAddAccount();
+  const startedAdd = beginAddIfRequested(options?.add);
   try {
     await (authClient as typeof authClient & { requestAuth: (opts?: { provider?: string }) => Promise<void> }).requestAuth({
       provider: options?.provider ?? "google",
     });
   } catch (error) {
-    if (options?.add) cancelAddAccount();
+    if (startedAdd) cancelAddAccount();
     throw error;
   }
 });

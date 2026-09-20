@@ -38,6 +38,7 @@ describe("desktop account vault", () => {
     vault.commit({ id: "u1", email: "a@x.com", name: "Ada" });
     vault.setBlob(COOKIE_KEY, "cookie-a");
     vault.beginAdd();
+    vault.beginAdd();
     vault.setBlob(COOKIE_KEY, "cookie-b");
     assert.equal(vault.get("u1")?.blobs[COOKIE_KEY], "cookie-a");
     vault.commit({ id: "u2", email: "b@x.com", name: "Bob" });

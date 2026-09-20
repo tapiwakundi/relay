@@ -33,10 +33,12 @@ import {
   LuPlus,
   LuSearch,
   LuSend,
+  LuSettings,
   LuShare2,
   LuSmile,
   LuStar,
   LuStrikethrough,
+  LuUserPlus,
   LuUsers,
   LuVideo,
   LuX,
@@ -61,12 +63,14 @@ export const MoreIcon = withDefaults(LuEllipsis, 18);
 export const Chevron = withDefaults(LuChevronDown, 14);
 export const ChevronDown = withDefaults(LuChevronDown, 16);
 export const SearchIcon = withDefaults(LuSearch, 18);
+export const Settings = withDefaults(LuSettings, 18);
 export const Pencil = withDefaults(LuPencil, 18);
 export const Hash = withDefaults(LuHash, 16);
 export const Lock = withDefaults(LuLock, 14);
 export const Headphones = withDefaults(LuHeadphones, 16);
 export const Phone = withDefaults(LuPhone, 16);
 export const Users = withDefaults(LuUsers, 16);
+export const UserPlus = withDefaults(LuUserPlus, 18);
 export const Info = withDefaults(LuInfo, 16);
 export const Back = withDefaults(LuChevronLeft, 16);
 export const Forward = withDefaults(LuChevronRight, 16);

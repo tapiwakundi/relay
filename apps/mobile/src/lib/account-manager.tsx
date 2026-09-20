@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { AppState, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import type { MeResponse, RelayAccountSummary } from "@relay/shared";
-import { unreadTotals } from "@relay/shared";
+import { unreadTotals, workspacePreviewFromMe } from "@relay/shared";
 import {
   accountVault,
   api,
@@ -49,6 +49,7 @@ async function refreshOne(accountId: string) {
       activeWorkspaceId: me.activeWorkspaceId,
       unreadTotal: totals.unreadTotal,
       mentionTotal: totals.mentionTotal,
+      workspace: workspacePreviewFromMe(me),
     });
   } catch {
     /* expired accounts are handled via 401 */

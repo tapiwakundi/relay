@@ -118,6 +118,7 @@ export function createMobileAccountVault(store: KvStore) {
         activeWorkspaceId: summary.activeWorkspaceId,
         unreadTotal: summary.unreadTotal ?? prev?.unreadTotal ?? 0,
         mentionTotal: summary.mentionTotal ?? prev?.mentionTotal ?? 0,
+        workspace: summary.workspace ?? prev?.workspace ?? null,
       };
       if (!index.activeAccountId) index.activeAccountId = account.id;
       await save(index);
@@ -151,6 +152,7 @@ export function createMobileAccountVault(store: KvStore) {
             activeWorkspaceId: session.activeWorkspaceId,
             unreadTotal: session.unreadTotal,
             mentionTotal: session.mentionTotal,
+            workspace: session.workspace ?? null,
           },
         },
         activeAccountId: session.id,

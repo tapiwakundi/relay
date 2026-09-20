@@ -1,6 +1,6 @@
 import { safeStorage } from "electron";
 import type { MeResponse, RelayAccountSummary } from "@relay/shared";
-import { unreadTotals } from "@relay/shared";
+import { unreadTotals, workspacePreviewFromMe } from "@relay/shared";
 import { COOKIE_KEY, cookieHeaderFromJson } from "./account-store";
 import { getAccountVault } from "./account-conf";
 import { API_ORIGIN, authClient } from "./auth";
@@ -78,6 +78,7 @@ export async function refreshSummary(accountId: string) {
     activeWorkspaceId: me.activeWorkspaceId,
     unreadTotal: totals.unreadTotal,
     mentionTotal: totals.mentionTotal,
+    workspace: workspacePreviewFromMe(me),
   });
   broadcastAccounts();
 }
@@ -140,6 +141,10 @@ export async function hydrateAccounts() {
 }
 
 export function beginAddAccount() {
+  if (getAccountVault().isAdding()) {
+    broadcastAccounts();
+    return;
+  }
   getAccountVault().beginAdd();
   broadcastAccounts();
 }

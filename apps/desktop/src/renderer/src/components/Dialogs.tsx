@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Channel, Invite, Member, Workspace } from "@relay/shared";
 import type { UpdateState } from "../../../shared/ipc";
+import { Close, Plus, SearchIcon, UserPlus } from "./Icons";
 import { WorkspaceGlyph } from "./WorkspaceGlyph";
 
 export function FormDialog({
@@ -413,5 +414,165 @@ export function WorkspaceSettingsDialog({
         )}
       </form>
     </FormDialog>
+  );
+}
+
+export function AddWorkspaceDialog({
+  workspaces,
+  currentWorkspaceId,
+  onSignInOther,
+  onSelectWorkspace,
+  onCreate,
+  onJoinInvite,
+  onClose,
+}: {
+  workspaces: Workspace[];
+  currentWorkspaceId: string;
+  onSignInOther: () => void;
+  onSelectWorkspace: (id: string) => Promise<void>;
+  onCreate: (name: string) => Promise<void>;
+  onJoinInvite: (token: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [view, setView] = useState<"choose" | "find" | "create">("choose");
+  const [name, setName] = useState("");
+  const [invite, setInvite] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const title = view === "find" ? "Find workspaces" : view === "create" ? "Create a new workspace" : "Add a workspace";
+
+  async function run(action: () => Promise<void>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modal-bg add-ws-bg" onClick={onClose}>
+      <div className="add-ws-dialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-labelledby="add-ws-title">
+        <div className="add-ws-head">
+          <h3 id="add-ws-title">{title}</h3>
+          <button type="button" className="add-ws-close" aria-label="Close" onClick={onClose}>
+            <Close size={20} />
+          </button>
+        </div>
+        {view === "choose" ? (
+          <div className="add-ws-list">
+            <button type="button" className="add-ws-row" onClick={onSignInOther}>
+              <span className="add-ws-ico">
+                <UserPlus />
+              </span>
+              Sign in to another workspace
+            </button>
+            <button type="button" className="add-ws-row" onClick={() => setView("find")}>
+              <span className="add-ws-ico">
+                <SearchIcon />
+              </span>
+              Find workspaces
+            </button>
+            <button type="button" className="add-ws-row" onClick={() => setView("create")}>
+              <span className="add-ws-ico">
+                <Plus size={20} />
+              </span>
+              Create a new workspace
+            </button>
+          </div>
+        ) : (
+          <div className="add-ws-body">
+            {error ? <div className="add-ws-error">{error}</div> : null}
+            {view === "find" ? (
+              <>
+                {workspaces.length ? (
+                  <div className="add-ws-list">
+                    {workspaces.map((ws) => (
+                      <button
+                        key={ws.id}
+                        type="button"
+                        className="add-ws-row"
+                        disabled={busy || ws.id === currentWorkspaceId}
+                        onClick={() => void run(async () => onSelectWorkspace(ws.id))}
+                      >
+                        <WorkspaceGlyph className="sm" workspace={ws} />
+                        <span>
+                          {ws.name}
+                          {ws.id === currentWorkspaceId ? " · current" : ""}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                <form
+                  className="add-ws-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const raw = invite.trim();
+                    const token = raw.includes("invite=")
+                      ? (raw.split("invite=")[1]?.split("&")[0] ?? raw)
+                      : raw;
+                    if (!token) {
+                      setError("Paste an invite link or token");
+                      return;
+                    }
+                    void run(async () => onJoinInvite(token));
+                  }}
+                >
+                  <label>
+                    Join with an invite
+                    <input
+                      value={invite}
+                      onChange={(e) => setInvite(e.target.value)}
+                      placeholder="Paste invite link"
+                      autoFocus
+                    />
+                  </label>
+                  <button type="submit" className="add-ws-submit" disabled={busy || !invite.trim()}>
+                    Join workspace
+                  </button>
+                </form>
+              </>
+            ) : (
+              <form
+                className="add-ws-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!name.trim()) return;
+                  void run(async () => onCreate(name.trim()));
+                }}
+              >
+                <label>
+                  Workspace name
+                  <input
+                    autoFocus
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Acme"
+                    required
+                  />
+                </label>
+                <button type="submit" className="add-ws-submit" disabled={busy || !name.trim()}>
+                  Create
+                </button>
+              </form>
+            )}
+            <button
+              type="button"
+              className="add-ws-back"
+              onClick={() => {
+                setView("choose");
+                setError(null);
+              }}
+            >
+              Back
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

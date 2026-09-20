@@ -92,6 +92,14 @@ export type DesktopAccount = {
   activeWorkspaceId: string | null;
   unreadTotal: number;
   mentionTotal: number;
+  workspace?: {
+    id: string;
+    name: string;
+    slug: string;
+    iconColor: string;
+    iconLetter: string;
+    iconUrl: string | null;
+  } | null;
 };
 
 export type AccountsSnapshot = {

@@ -476,6 +476,25 @@ button {
 .sb-head h2 svg {
   opacity: 0.7;
 }
+.sb-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sb-icon-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  display: grid;
+  place-items: center;
+}
+.sb-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
 .compose-fab {
   width: 34px;
   height: 34px;
@@ -1918,4 +1937,240 @@ code {
 .profile-muted {
   color: var(--text-2);
   font-size: 15px;
+}
+
+.modal-bg.add-ws-bg {
+  background: rgba(0, 0, 0, 0.55);
+  align-items: flex-start;
+  padding-top: 18vh;
+}
+.add-ws-dialog {
+  width: min(480px, calc(100% - 40px));
+  background: #1a1d21;
+  color: #d1d2d3;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 18px 48px rgba(0, 0, 0, 0.5);
+  padding: 4px 0 8px;
+  overflow: hidden;
+  height: fit-content;
+}
+.add-ws-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px 10px;
+}
+.add-ws-head h3 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.03em;
+}
+.add-ws-close {
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #ababad;
+  display: grid;
+  place-items: center;
+}
+.add-ws-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.add-ws-list {
+  display: flex;
+  flex-direction: column;
+}
+.add-ws-row {
+  width: 100%;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: #e8e8e8;
+  font-size: 15px;
+  font-weight: 400;
+  text-align: left;
+}
+.add-ws-row:hover,
+.add-ws-row:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+.add-ws-row:disabled {
+  opacity: 0.55;
+}
+.add-ws-ico {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #2c2f33;
+  color: #d1d2d3;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.add-ws-body {
+  padding-bottom: 8px;
+}
+.add-ws-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 20px 4px;
+}
+.add-ws-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ababad;
+}
+.add-ws-form input {
+  height: 42px;
+  border: 1px solid #3f4246;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 15px;
+  background: #222529;
+  color: #fff;
+  outline: none;
+}
+.add-ws-form input:focus {
+  border-color: #8a8f98;
+}
+.add-ws-submit {
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: #007a5a;
+  color: #fff;
+  font-weight: 700;
+  padding: 0 14px;
+}
+.add-ws-submit:disabled {
+  opacity: 0.45;
+}
+.add-ws-back {
+  margin: 4px 20px 8px;
+  border: none;
+  background: transparent;
+  color: #ababad;
+  font-size: 13px;
+  padding: 0;
+}
+.add-ws-back:hover {
+  color: #fff;
+}
+.add-ws-error {
+  margin: 0 20px 8px;
+  color: #e01e5a;
+  font-size: 13px;
+}
+
+.modal-bg.switcher-bg {
+  background: transparent;
+  padding: 0;
+  display: block;
+}
+.ws-switcher {
+  position: absolute;
+  top: 52px;
+  left: 78px;
+  width: min(380px, calc(100vw - 96px));
+  background: #1a1d21;
+  color: #d1d2d3;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 18px 48px rgba(0, 0, 0, 0.5);
+  padding: 8px 0;
+  overflow: hidden;
+  z-index: 60;
+}
+.ws-switcher-row {
+  width: 100%;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.ws-switcher-row:hover,
+.ws-switcher-row:focus-visible,
+.ws-switcher-row.active {
+  background: rgba(255, 255, 255, 0.08);
+}
+.ws-switcher-ico {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.ws-switcher-ico.on {
+  box-shadow: 0 0 0 2px #1a1d21, 0 0 0 4px #fff;
+}
+.ws-switcher-ico.add {
+  width: 36px;
+  height: 36px;
+  margin: 4px;
+  border-radius: 8px;
+  background: #2c2f33;
+  color: #e8e8e8;
+}
+.ws-glyph.in-switcher {
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  border-radius: 8px;
+  font-size: 18px;
+  box-shadow: none;
+  cursor: default;
+}
+.ws-switcher-sep {
+  height: 1px;
+  margin: 4px 12px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.ws-switcher-copy {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ws-switcher-copy strong {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+}
+.ws-switcher-copy em {
+  color: #ababad;
+  font-size: 13px;
+  font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-switcher-row kbd {
+  color: #8a8f98;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  background: none;
+  border: none;
+  padding: 0;
 }

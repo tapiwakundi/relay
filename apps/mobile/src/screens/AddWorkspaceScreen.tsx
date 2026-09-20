@@ -5,20 +5,26 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAccounts } from "../lib/account-manager";
 import { api } from "../lib/auth";
 import { keys, queryClient, setActiveWorkspaceId } from "../lib/query";
+import { useWorkspace } from "../lib/workspace";
 import { Glass } from "../ui/Glass";
 import { HeaderBtn, ScreenHeader } from "../ui/Header";
 import { colors, radii, space } from "../ui/theme";
 import type { RootStackParamList } from "../nav/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "AddWorkspace">;
+type Panel = "choose" | "find" | "create";
 
 export function AddWorkspaceScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { startAddAccount } = useAccounts();
-  const [creating, setCreating] = useState(false);
+  const { workspaces, workspace, selectWorkspace } = useWorkspace();
+  const [view, setView] = useState<Panel>("choose");
   const [name, setName] = useState("");
+  const [invite, setInvite] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const title = view === "find" ? "Find workspaces" : view === "create" ? "Create a new workspace" : "Add a workspace";
 
   async function create() {
     setBusy(true);
@@ -39,18 +45,50 @@ export function AddWorkspaceScreen({ navigation }: Props) {
     }
   }
 
+  async function join() {
+    setBusy(true);
+    setError(null);
+    try {
+      const raw = invite.trim();
+      const token = raw.includes("invite=") ? (raw.split("invite=")[1]?.split("&")[0] ?? raw) : raw;
+      const res = await api<{ workspace: { id: string } }>("/api/invites/accept", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      });
+      if (res.workspace?.id) {
+        await selectWorkspace(res.workspace.id);
+      }
+      navigation.goBack();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <Glass style={styles.head}>
         <ScreenHeader
-          title={creating ? "Create workspace" : "Add a workspace"}
-          left={<HeaderBtn label="‹" onPress={() => (creating ? setCreating(false) : navigation.goBack())} />}
+          title={title}
+          left={
+            <HeaderBtn
+              label="‹"
+              onPress={() => (view === "choose" ? navigation.goBack() : setView("choose"))}
+            />
+          }
         />
       </Glass>
-      <View style={{ padding: space.md, gap: 12 }}>
-        {creating ? (
+      <View style={{ padding: space.md, gap: 8 }}>
+        {error ? <Text style={styles.err}>{error}</Text> : null}
+        {view === "choose" ? (
+          <>
+            <Row icon="👤+" label="Sign in to another workspace" onPress={() => startAddAccount()} />
+            <Row icon="⌕" label="Find workspaces" onPress={() => setView("find")} />
+            <Row icon="+" label="Create a new workspace" onPress={() => setView("create")} />
+          </>
+        ) : view === "create" ? (
           <Glass style={styles.card}>
-            {error ? <Text style={styles.err}>{error}</Text> : null}
             <TextInput
               style={styles.input}
               placeholder="Workspace name"
@@ -64,18 +102,38 @@ export function AddWorkspaceScreen({ navigation }: Props) {
           </Glass>
         ) : (
           <>
-            <Pressable onPress={() => setCreating(true)}>
-              <Glass style={styles.card}>
-                <Text style={styles.title}>Create with this account</Text>
-                <Text style={styles.sub}>Stay signed in and make another workspace.</Text>
-              </Glass>
-            </Pressable>
-            <Pressable onPress={() => startAddAccount()}>
-              <Glass style={styles.card}>
-                <Text style={styles.title}>Sign in with another account</Text>
-                <Text style={styles.sub}>Add a different email. Both accounts stay on this device.</Text>
-              </Glass>
-            </Pressable>
+            {workspaces.map((ws) => (
+              <Pressable
+                key={ws.id}
+                disabled={ws.id === workspace.id}
+                onPress={() => {
+                  void selectWorkspace(ws.id).then(() => navigation.goBack());
+                }}
+              >
+                <Glass style={styles.row}>
+                  <View style={styles.ico}>
+                    <Text style={styles.icoTxt}>{(ws.iconLetter || ws.name[0] || "W").toUpperCase()}</Text>
+                  </View>
+                  <Text style={styles.rowTxt}>
+                    {ws.name}
+                    {ws.id === workspace.id ? " · current" : ""}
+                  </Text>
+                </Glass>
+              </Pressable>
+            ))}
+            <Glass style={styles.card}>
+              <TextInput
+                style={styles.input}
+                placeholder="Paste invite link"
+                placeholderTextColor={colors.faint}
+                value={invite}
+                onChangeText={setInvite}
+                autoCapitalize="none"
+              />
+              <Pressable style={styles.cta} disabled={busy || !invite.trim()} onPress={() => void join()}>
+                {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaTxt}>Join workspace</Text>}
+              </Pressable>
+            </Glass>
           </>
         )}
       </View>
@@ -83,12 +141,41 @@ export function AddWorkspaceScreen({ navigation }: Props) {
   );
 }
 
+function Row({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress}>
+      <Glass style={styles.row}>
+        <View style={styles.ico}>
+          <Text style={styles.icoTxt}>{icon}</Text>
+        </View>
+        <Text style={styles.rowTxt}>{label}</Text>
+      </Glass>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   head: { marginHorizontal: 12, marginBottom: 8, borderRadius: radii.lg },
   card: { padding: 16, borderRadius: radii.lg, gap: 10 },
-  title: { color: colors.ink, fontSize: 18, fontWeight: "800" },
-  sub: { color: colors.muted, marginTop: 4 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: radii.lg,
+  },
+  ico: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  icoTxt: { color: colors.ink, fontWeight: "700", fontSize: 16 },
+  rowTxt: { color: colors.ink, fontSize: 16, fontWeight: "600", flex: 1 },
   err: { color: colors.pink },
   input: {
     height: 48,

@@ -212,6 +212,14 @@ export type RelayAccountSummary = {
   activeWorkspaceId: string | null;
   unreadTotal: number;
   mentionTotal: number;
+  workspace?: {
+    id: string;
+    name: string;
+    slug: string;
+    iconColor: string;
+    iconLetter: string;
+    iconUrl: string | null;
+  } | null;
 };
 
 export type RelayAccountSession = {
@@ -246,4 +254,25 @@ export function unreadTotals(workspaces: { unreadTotal?: number; mentionTotal?: 
     mentionTotal += ws.mentionTotal ?? 0;
   }
   return { unreadTotal, mentionTotal };
+}
+
+export function workspacePreviewFromMe(me: {
+  workspace?: Workspace | null;
+  workspaces?: Workspace[];
+  activeWorkspaceId?: string | null;
+}): NonNullable<RelayAccountSummary["workspace"]> | null {
+  const ws =
+    me.workspace ??
+    me.workspaces?.find((item) => item.id === me.activeWorkspaceId) ??
+    me.workspaces?.[0] ??
+    null;
+  if (!ws) return null;
+  return {
+    id: ws.id,
+    name: ws.name,
+    slug: ws.slug,
+    iconColor: ws.iconColor,
+    iconLetter: ws.iconLetter,
+    iconUrl: ws.iconUrl,
+  };
 }
