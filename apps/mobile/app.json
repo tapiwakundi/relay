@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Relay",
+    "name": "Re8",
     "slug": "relay",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -10,8 +10,8 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.endurancelabs.relay",
-      "appleTeamId": "XP4BQD8GHE",
+      "bundleIdentifier": "com.endurancelabs.relayapp",
+      "appleTeamId": "4WUJ6V99Q5",
       "infoPlist": {
         "UIApplicationSceneManifest": {
           "UIApplicationSupportsMultipleScenes": false,

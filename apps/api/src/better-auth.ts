@@ -70,6 +70,7 @@ export function createAuth(db: AppDb) {
       "http://127.0.0.1:3001",
       "http://localhost:8081",
       "com.endurancelabs.relaydesktop:/",
+      "com.endurancelabs.relayapp:/",
       "relay://",
       "exp://",
       "exp+relay://",

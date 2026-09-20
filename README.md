@@ -12,7 +12,7 @@ Slack-shaped workspace chat: channels, DMs, threads, huddles, desktop, and mobil
 - **Files:** Neon Object Storage (`relay-storage`, private bucket)
 - **Desktop:** Electron (`com.endurancelabs.relaydesktop`) with a bundled React renderer, native notifications, and screen sharing
 - **Landing:** Static Vite site on Render (`apps/landing`)
-- **Mobile:** Expo + push token registration (`com.endurancelabs.relay`)
+- **Mobile:** Expo + push token registration (`com.endurancelabs.relayapp`)
 - **Huddles:** LiveKit Cloud (optional; roster works without keys)
 
 ## Quick start

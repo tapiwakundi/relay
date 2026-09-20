@@ -57,7 +57,8 @@ export function createApp(opts: { db: AppDb; hub: Hub; auth: Auth }) {
       origin.startsWith("exp://") ||
       origin.startsWith("relay://") ||
       origin.startsWith("exp+relay://") ||
-      origin.startsWith("com.endurancelabs.relaydesktop:")
+      origin.startsWith("com.endurancelabs.relaydesktop:") ||
+      origin.startsWith("com.endurancelabs.relayapp:")
     ) {
       return true;
     }
