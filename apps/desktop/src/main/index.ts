@@ -78,6 +78,7 @@ ipcMain.handle(relayChannels.setActiveChannel, (_event, channelId: unknown) => {
 });
 ipcMain.handle(relayChannels.pendingInvites, () => takePendingInvites());
 ipcMain.handle(relayChannels.prepareMedia, () => prepareMedia());
+ipcMain.handle(relayChannels.showEmojiPanel, () => app.showEmojiPanel());
 
 function installContentSecurityPolicy() {
   if (!app.isPackaged) return;

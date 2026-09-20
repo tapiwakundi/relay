@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { Member } from "@relay/shared";
-import { EMOJI_QUICK } from "@relay/shared";
 import { editorIsEmpty, escapeHtml, htmlToMarkdown, textBeforeCaret } from "../lib/format";
 import { Avatar } from "./Avatar";
 import { Bold, Code, Emoji, FormatText, Italic, Link, List, Mention, Plus, Send, Strike } from "./Icons";
@@ -22,7 +21,6 @@ export function Composer({
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [formatOpen, setFormatOpen] = useState(true);
-  const [emojiOpen, setEmojiOpen] = useState(false);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQ, setMentionQ] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
@@ -128,6 +126,11 @@ export function Composer({
     ref.current?.focus();
     document.execCommand("insertText", false, value);
     sync();
+  }
+
+  function showEmojiPanel() {
+    ref.current?.focus();
+    void window.relayDesktop.showEmojiPanel();
   }
 
   function insertMention(member: Member) {
@@ -473,27 +476,15 @@ export function Composer({
           >
             <FormatText />
           </button>
-          <div className="pop-wrap">
-            <button className="c-btn" type="button" title="Emoji" onClick={() => setEmojiOpen((v) => !v)}>
-              <Emoji />
-            </button>
-            {emojiOpen ? (
-              <div className="emoji-pop">
-                {EMOJI_QUICK.map((em) => (
-                  <button
-                    key={em}
-                    type="button"
-                    onClick={() => {
-                      insertText(em);
-                      setEmojiOpen(false);
-                    }}
-                  >
-                    {em}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
+          <button
+            className="c-btn"
+            type="button"
+            title="Emoji"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={showEmojiPanel}
+          >
+            <Emoji />
+          </button>
           <button className="c-btn" type="button" title="Mention" onClick={() => insertText("@")}>
             <Mention />
           </button>

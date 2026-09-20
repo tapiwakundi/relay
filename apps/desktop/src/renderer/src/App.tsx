@@ -34,6 +34,7 @@ import { WorkspaceGlyph } from "./components/WorkspaceGlyph";
 import {
   Back,
   BellIcon,
+  Chevron,
   Close,
   DmIcon,
   FileIcon,
@@ -49,6 +50,7 @@ import {
   MoreIcon,
   Pencil,
   Screen,
+  SearchIcon,
   Users,
   Video,
 } from "./components/Icons";
@@ -613,12 +615,15 @@ export function WorkspaceApp() {
             <Forward />
           </button>
         </div>
-        <input
-          className="search"
-          readOnly
-          placeholder={`Search ${workspace.name}`}
-          onClick={() => setSwitcher(true)}
-        />
+        <div className="search-wrap">
+          <SearchIcon size={14} aria-hidden />
+          <input
+            className="search"
+            readOnly
+            placeholder={`Search ${workspace.name}`}
+            onClick={() => setSwitcher(true)}
+          />
+        </div>
         <div className="top-help">
           <button className="icon-btn" onClick={() => setDialog("help")}>
             <Help />
@@ -673,9 +678,7 @@ export function WorkspaceApp() {
         <div className="sb-head">
           <h2 onClick={() => setDialog("workspace")}>
             {workspace.name}
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="m6 9 6 6 6-6" />
-            </svg>
+            <Chevron size={16} strokeWidth={2.2} />
           </h2>
           <button className="compose-fab" title="New message" onClick={() => setDialog("dm")}>
             <Pencil size={16} />
@@ -1292,17 +1295,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <div className="section">
       <button className="section-h" onClick={() => setOpen((v) => !v)}>
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
+        <Chevron
+          size={12}
           strokeWidth="2.4"
           style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}
-        >
-          <path d="m6 9 6 6 6-6" />
-        </svg>
+        />
         {title}
       </button>
       {open ? children : null}

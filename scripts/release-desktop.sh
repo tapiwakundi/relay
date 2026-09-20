@@ -96,7 +96,7 @@ const [rootPath, desktopPath] = process.argv.slice(2);
 const desktop = JSON.parse(fs.readFileSync(desktopPath, "utf8"));
 const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(desktop.version);
 if (!match) throw new Error(`Desktop version must be x.y.z, received ${desktop.version}`);
-const next = `${match[1]}.${match[2]}.${Number(match[3]) + 1}`;
+const next = `${match[1]}.${Number(match[2]) + 1}.0`;
 for (const file of [rootPath, desktopPath]) {
   const pkg = JSON.parse(fs.readFileSync(file, "utf8"));
   pkg.version = next;
