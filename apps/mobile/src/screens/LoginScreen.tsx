@@ -1,14 +1,22 @@
 import { useState } from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { getAccessToken, signInEmail, signInGoogle, signUpEmail } from "../lib/auth";
+import { signInEmail, signInGoogle, signUpEmail } from "../lib/auth";
+import { useAccounts } from "../lib/account-manager";
 import { Glass } from "../ui/Glass";
 import { Wallpaper } from "../ui/Wallpaper";
 import { colors, radii, space } from "../ui/theme";
 
 const logo = require("../../assets/icon.png");
 
-export function LoginScreen({ onAuthed }: { onAuthed: () => void }) {
+export function LoginScreen({
+  add,
+  onCancel,
+}: {
+  add?: boolean;
+  onCancel?: () => void;
+}) {
+  const { completeAuth } = useAccounts();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -17,9 +25,7 @@ export function LoginScreen({ onAuthed }: { onAuthed: () => void }) {
   const [busy, setBusy] = useState(false);
 
   async function finish() {
-    const token = await getAccessToken();
-    if (!token) throw new Error("Couldn’t get a session token");
-    onAuthed();
+    await completeAuth();
   }
 
   async function emailAuth() {
@@ -61,7 +67,8 @@ export function LoginScreen({ onAuthed }: { onAuthed: () => void }) {
           <Text style={styles.brand}>relay</Text>
         </View>
         <Glass style={styles.card} variant="regular">
-          <Text style={styles.h1}>{mode === "in" ? "Sign in" : "Create account"}</Text>
+          <Text style={styles.h1}>{add ? "Another account" : mode === "in" ? "Sign in" : "Create account"}</Text>
+          {add ? <Text style={styles.sub}>Your current account stays signed in.</Text> : null}
           {error ? <Text style={styles.err}>{error}</Text> : null}
           <Pressable style={styles.google} onPress={() => void google()} disabled={busy}>
             <Text style={styles.googleTxt}>Continue with Google</Text>
@@ -100,6 +107,11 @@ export function LoginScreen({ onAuthed }: { onAuthed: () => void }) {
               {mode === "in" ? "Need an account? Sign up" : "Have an account? Sign in"}
             </Text>
           </Pressable>
+          {add ? (
+            <Pressable onPress={onCancel}>
+              <Text style={styles.switch}>Cancel</Text>
+            </Pressable>
+          ) : null}
         </Glass>
       </View>
     </View>
@@ -114,6 +126,7 @@ const styles = StyleSheet.create({
   brand: { color: colors.ink, fontSize: 28, fontWeight: "900" },
   card: { padding: space.lg, borderRadius: radii.lg, gap: 10 },
   h1: { color: colors.ink, fontSize: 28, fontWeight: "800", marginBottom: 8 },
+  sub: { color: colors.muted, marginBottom: 4 },
   err: { color: colors.pink, marginBottom: 4 },
   google: {
     height: 48,

@@ -15,6 +15,7 @@ import type {
 import { Room, RoomEvent } from "livekit-client";
 import { api, signOut } from "./lib/auth";
 import { connectWs } from "./lib/ws";
+import { useAccounts } from "./lib/accounts";
 import { Avatar } from "./components/Avatar";
 import { applyWsEvent, keys, setActiveWorkspaceId, type Bootstrap, type Me, type MeResponse } from "./lib/query";
 import { Composer } from "./components/Composer";
@@ -70,12 +71,13 @@ type Dialog =
 
 export function WorkspaceApp() {
   const qc = useQueryClient();
+  const { accounts, activeAccountId } = useAccounts();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [thread, setThread] = useState<ChatMessage | null>(null);
   const [rail, setRail] = useState<"home" | "dms" | "activity" | "files" | "later">("home");
   const [homeView, setHomeView] = useState<HomeView>("channels");
   const [switcher, setSwitcher] = useState(false);
-  const [creatingWorkspace, setCreatingWorkspace] = useState(false);
+  const [addWorkspace, setAddWorkspace] = useState<null | "choose" | "create">(null);
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [dialog, setDialog] = useState<Dialog>(null);
   const [typing, setTyping] = useState<string | null>(null);
@@ -228,15 +230,37 @@ export function WorkspaceApp() {
   }, [workspace]);
 
   useEffect(() => {
-    const count = channels.reduce((sum, channel) => sum + channel.unreadCount + channel.mentionCount, 0);
-    void window.relayDesktop.setBadge(count);
+    const mine = channels.reduce((sum, channel) => sum + channel.unreadCount + channel.mentionCount, 0);
+    void window.relayDesktop.setBadge(mine);
   }, [channels]);
 
   useEffect(() => {
     void window.relayDesktop.setActiveChannel(activeId);
   }, [activeId]);
 
-  useEffect(() => window.relayDesktop.onNavigate((id) => goTo(id)), []);
+  useEffect(() => {
+    const applyNav = () => {
+      const raw = sessionStorage.getItem("relay-nav");
+      if (!raw) return;
+      try {
+        const nav = JSON.parse(raw) as { accountId?: string; workspaceId?: string; channelId?: string };
+        if (nav.accountId && me?.id && nav.accountId !== me.id) return;
+        sessionStorage.removeItem("relay-nav");
+        if (nav.workspaceId && nav.workspaceId !== workspace?.id) {
+          void switchWorkspace(nav.workspaceId).then(() => {
+            if (nav.channelId) goTo(nav.channelId);
+          });
+          return;
+        }
+        if (nav.channelId) goTo(nav.channelId);
+      } catch {
+        sessionStorage.removeItem("relay-nav");
+      }
+    };
+    applyNav();
+    window.addEventListener("relay-nav", applyNav);
+    return () => window.removeEventListener("relay-nav", applyNav);
+  }, [me?.id, workspace?.id]);
 
   useEffect(() => {
     const huddle = messagesQuery.data?.huddle;
@@ -255,14 +279,16 @@ export function WorkspaceApp() {
   useEffect(() => {
     if (!me) return;
     const sock = connectWs(
-      (ev: WsServerEvent) => {
+      (ev: WsServerEvent, accountId: string) => {
+        if (accountId !== (meIdRef.current ?? me.id)) return;
         applyWsEvent(ev, meIdRef.current ?? me.id);
         if (ev.type === "typing" && ev.userId !== me.id) {
           setTyping(`${ev.userName} is typing…`);
           window.setTimeout(() => setTyping(null), 2500);
         }
       },
-      () => {
+      (accountId) => {
+        if (accountId && accountId !== (meIdRef.current ?? me.id)) return;
         if (workspace?.id) sock.send({ type: "workspace.select", workspaceId: workspace.id });
         const channelId = activeIdRef.current;
         if (channelId) sock.send({ type: "subscribe", channelId });
@@ -1083,7 +1109,6 @@ export function WorkspaceApp() {
           onSave={updateProfile}
           onSignOut={async () => {
             await signOut();
-            window.location.reload();
           }}
           onClose={() => setDialog(null)}
         />
@@ -1103,70 +1128,119 @@ export function WorkspaceApp() {
             <button onClick={() => setDialog("workspace-settings")}>Workspace settings</button>
             <button onClick={() => openProfile(me.id)}>Profile</button>
             <button onClick={() => setDialog("help")}>Keyboard shortcuts</button>
-            {workspaces.length > 0 ? (
-              <>
-                <hr />
-                <div className="title" style={{ padding: "4px 12px" }}>
-                  Workspaces
+            <hr />
+            <div className="title" style={{ padding: "4px 12px" }}>
+              Accounts
+            </div>
+            {(accounts.length ? accounts : [{ id: me.id, email: me.email, name: me.name, image: me.image, activeWorkspaceId: workspace.id, unreadTotal: 0, mentionTotal: 0 }]).map((account) => {
+              const mine = account.id === (activeAccountId ?? me.id);
+              return (
+                <div key={account.id} className="account-group">
+                  <div className="account-group-email">
+                    {account.email || account.name}
+                    {account.unreadTotal ? ` · ${account.unreadTotal}` : ""}
+                    {mine ? " · active" : ""}
+                  </div>
+                  {mine
+                    ? workspaces.map((ws) => (
+                        <button
+                          key={ws.id}
+                          onClick={() => {
+                            void switchWorkspace(ws.id);
+                            setDialog(null);
+                          }}
+                        >
+                          {ws.name}
+                          {ws.id === workspace.id ? " ✓" : ""}
+                          {ws.unreadTotal ? ` (${ws.unreadTotal})` : ""}
+                        </button>
+                      ))
+                    : (
+                        <button
+                          onClick={() => {
+                            void window.relayDesktop.switchAccount(account.id);
+                            setDialog(null);
+                          }}
+                        >
+                          Switch to this account
+                        </button>
+                      )}
                 </div>
-                {workspaces.map((ws) => (
-                  <button
-                    key={ws.id}
-                    onClick={() => {
-                      void switchWorkspace(ws.id);
-                      setDialog(null);
-                    }}
-                  >
-                    {ws.name}
-                    {ws.id === workspace.id ? " ✓" : ""}
-                  </button>
-                ))}
-                <button onClick={() => setCreatingWorkspace(true)}>Add a workspace</button>
-              </>
-            ) : null}
+              );
+            })}
+            <button onClick={() => setAddWorkspace("choose")}>Add a workspace</button>
             <hr />
             <button
               onClick={async () => {
                 await signOut();
-                window.location.reload();
               }}
             >
-              Sign out
+              Sign out {me.email || "this account"}
             </button>
           </div>
         </div>
       )}
-      {creatingWorkspace ? (
-        <div className="modal-bg" onClick={() => setCreatingWorkspace(false)}>
+      {addWorkspace ? (
+        <div className="modal-bg" onClick={() => setAddWorkspace(null)}>
           <div className="dialog" onClick={(e) => e.stopPropagation()}>
-            <h3>Create a workspace</h3>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const created = await api<{ workspace: Workspace }>("/api/workspaces", {
-                  method: "POST",
-                  body: JSON.stringify({ name: newWorkspaceName }),
-                });
-                await api(`/api/workspaces/${created.workspace.id}/select`, { method: "POST" });
-                setActiveWorkspaceId(created.workspace.id);
-                setNewWorkspaceName("");
-                setCreatingWorkspace(false);
-                setActiveId(null);
-                setThread(null);
-                await qc.invalidateQueries({ queryKey: keys.me });
-              }}
-            >
-              <input
-                autoFocus
-                placeholder="Workspace name"
-                value={newWorkspaceName}
-                onChange={(e) => setNewWorkspaceName(e.target.value)}
-                required
-              />
-              <button type="submit" className="btn-primary">
-                Create
-              </button>
-            </form>
+            {addWorkspace === "choose" ? (
+              <>
+                <h3>Add a workspace</h3>
+                <p className="sub" style={{ marginTop: 0 }}>
+                  Create one with {me.email || "this account"}, or sign in with a different account.
+                </p>
+                <button
+                  className="btn-primary"
+                  type="button"
+                  onClick={() => setAddWorkspace("create")}
+                >
+                  Create with this account
+                </button>
+                <button
+                  type="button"
+                  className="btn-google"
+                  style={{ marginTop: 8, width: "100%" }}
+                  onClick={() => {
+                    setAddWorkspace(null);
+                    setDialog(null);
+                    void window.relayDesktop.startAddAccount();
+                  }}
+                >
+                  Sign in with another account
+                </button>
+              </>
+            ) : (
+              <>
+                <h3>Create a workspace</h3>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const created = await api<{ workspace: Workspace }>("/api/workspaces", {
+                      method: "POST",
+                      body: JSON.stringify({ name: newWorkspaceName }),
+                    });
+                    await api(`/api/workspaces/${created.workspace.id}/select`, { method: "POST" });
+                    setActiveWorkspaceId(created.workspace.id);
+                    setNewWorkspaceName("");
+                    setAddWorkspace(null);
+                    setActiveId(null);
+                    setThread(null);
+                    await qc.invalidateQueries({ queryKey: keys.me });
+                  }}
+                >
+                  <input
+                    autoFocus
+                    placeholder="Workspace name"
+                    value={newWorkspaceName}
+                    onChange={(e) => setNewWorkspaceName(e.target.value)}
+                    required
+                  />
+                  <button type="submit" className="btn-primary">
+                    Create
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         </div>
       ) : null}

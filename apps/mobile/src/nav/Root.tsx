@@ -1,7 +1,13 @@
+import { useEffect } from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { DarkTheme, NavigationContainer } from "@react-navigation/native";
+import { DarkTheme, NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import * as Notifications from "expo-notifications";
 import { StatusBar } from "expo-status-bar";
+import type { PushNotificationData } from "@relay/shared";
+import { useAccounts } from "../lib/account-manager";
+import { navFromPush, openPendingIfReady, setPendingChannelOpener, setPendingNav } from "../lib/pending-nav";
+import { useWorkspace } from "../lib/workspace";
 import { GlassTabBar } from "./GlassTabBar";
 import { ActivityScreen } from "../screens/ActivityScreen";
 import { ChannelScreen } from "../screens/ChannelScreen";
@@ -17,10 +23,12 @@ import { SearchScreen } from "../screens/SearchScreen";
 import { ThreadScreen } from "../screens/ThreadScreen";
 import { WorkspaceSettingsScreen } from "../screens/WorkspaceSettingsScreen";
 import { YouScreen } from "../screens/YouScreen";
+import { AddWorkspaceScreen } from "../screens/AddWorkspaceScreen";
 import type { RootStackParamList, TabParamList } from "./types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<TabParamList>();
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 const theme = {
   ...DarkTheme,
@@ -41,9 +49,37 @@ function TabNav() {
   );
 }
 
+function openChannel(channelId: string) {
+  if (navigationRef.isReady()) navigationRef.navigate("Channel", { channelId });
+}
+
 export function RootNav() {
+  const { switchAccount, activeAccountId } = useAccounts();
+  const { workspace } = useWorkspace();
+
+  useEffect(() => {
+    setPendingChannelOpener((channelId) => openChannel(channelId));
+    openPendingIfReady(activeAccountId, workspace.id);
+    return () => setPendingChannelOpener(null);
+  }, [activeAccountId, workspace.id]);
+
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as PushNotificationData;
+      const nav = navFromPush(data, activeAccountId);
+      if (!nav) return;
+      setPendingNav(data);
+      if (nav.switchAccount) {
+        void switchAccount(nav.accountId);
+        return;
+      }
+      openPendingIfReady(activeAccountId, workspace.id);
+    });
+    return () => sub.remove();
+  }, [activeAccountId, switchAccount, workspace.id]);
+
   return (
-    <NavigationContainer theme={theme}>
+    <NavigationContainer ref={navigationRef} theme={theme}>
       <StatusBar style="light" />
       <Stack.Navigator
         screenOptions={{
@@ -65,6 +101,7 @@ export function RootNav() {
         <Stack.Screen name="Files" component={FilesScreen} />
         <Stack.Screen name="Threads" component={ThreadsScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+        <Stack.Screen name="AddWorkspace" component={AddWorkspaceScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

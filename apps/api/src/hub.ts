@@ -8,14 +8,23 @@ type Client = {
   ws: WebSocket;
   userId: string;
   workspaceId: string | null;
-  channels: Set<string>;
+  watched: Set<string>;
+  viewed: Set<string>;
+};
+
+export type UnreadBump = {
+  userId: string;
+  workspaceId: string;
+  channelId: string;
+  unreadCount: number;
+  mentionCount: number;
 };
 
 export class Hub {
   private clients = new Set<Client>();
 
   add(ws: WebSocket, userId: string, workspaceId: string | null = null) {
-    const client: Client = { ws, userId, workspaceId, channels: new Set() };
+    const client: Client = { ws, userId, workspaceId, watched: new Set(), viewed: new Set() };
     this.clients.add(client);
     ws.on("close", () => this.clients.delete(client));
     return client;
@@ -23,25 +32,38 @@ export class Hub {
 
   setWorkspace(client: Client, workspaceId: string | null) {
     client.workspaceId = workspaceId;
-    client.channels.clear();
+  }
+
+  watch(client: Client, channelId: string) {
+    client.watched.add(channelId);
+  }
+
+  unwatch(client: Client, channelId: string) {
+    client.watched.delete(channelId);
+    client.viewed.delete(channelId);
   }
 
   subscribe(client: Client, channelId: string) {
-    client.channels.add(channelId);
+    client.watched.add(channelId);
+    client.viewed.add(channelId);
   }
 
   unsubscribe(client: Client, channelId: string) {
-    client.channels.delete(channelId);
+    client.viewed.delete(channelId);
   }
 
   send(ws: WebSocket, event: WsServerEvent) {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(event));
   }
 
+  listening(client: Client, channelId: string) {
+    return client.watched.has(channelId) || client.viewed.has(channelId);
+  }
+
   broadcastToChannel(channelId: string, event: WsServerEvent, except?: WebSocket) {
     for (const c of this.clients) {
       if (c.ws === except) continue;
-      if (c.channels.has(channelId)) this.send(c.ws, event);
+      if (this.listening(c, channelId)) this.send(c.ws, event);
     }
   }
 
@@ -63,11 +85,23 @@ export class Hub {
     return false;
   }
 
-  isSubscribed(userId: string, channelId: string) {
+  isViewing(userId: string, channelId: string) {
     for (const c of this.clients) {
-      if (c.userId === userId && c.channels.has(channelId)) return true;
+      if (c.userId === userId && c.viewed.has(channelId)) return true;
     }
     return false;
+  }
+
+  isWatching(userId: string, channelId: string) {
+    for (const c of this.clients) {
+      if (c.userId === userId && this.listening(c, channelId)) return true;
+    }
+    return false;
+  }
+
+  /** @deprecated use isViewing — subscribe now means the user is looking at the channel */
+  isSubscribed(userId: string, channelId: string) {
+    return this.isViewing(userId, channelId);
   }
 }
 
@@ -77,19 +111,19 @@ export async function bumpUnread(
   channelId: string,
   authorId: string,
   mentionedUserIds: string[],
-) {
+): Promise<UnreadBump[]> {
   const members = await db
     .select()
     .from(channelMember)
     .where(and(eq(channelMember.channelId, channelId), isNull(channelMember.leftAt)));
   const skip = new Set<string>([authorId]);
   for (const m of members) {
-    if (hub.isSubscribed(m.userId, channelId)) skip.add(m.userId);
+    if (hub.isViewing(m.userId, channelId)) skip.add(m.userId);
   }
   const mentionAll = mentionedUserIds.includes("*");
   const mentionSet = new Set(mentionedUserIds.filter((id) => id !== "*"));
   const targets = members.filter((m) => !skip.has(m.userId));
-  if (!targets.length) return;
+  if (!targets.length) return [];
 
   const mentionedTargets = targets.filter((m) => mentionAll || mentionSet.has(m.userId)).map((m) => m.userId);
   const otherTargets = targets.filter((m) => !mentionedTargets.includes(m.userId)).map((m) => m.userId);
@@ -126,14 +160,25 @@ export async function bumpUnread(
     .select()
     .from(channelMember)
     .where(and(eq(channelMember.channelId, channelId), inArray(channelMember.userId, targets.map((m) => m.userId))));
+  const bumps: UnreadBump[] = [];
   for (const m of fresh) {
+    const bump: UnreadBump = {
+      userId: m.userId,
+      workspaceId: m.workspaceId,
+      channelId,
+      unreadCount: m.unreadCount,
+      mentionCount: m.mentionCount,
+    };
+    bumps.push(bump);
     hub.broadcastToUser(m.userId, {
       type: "unread",
       channelId,
+      workspaceId: m.workspaceId,
       unreadCount: m.unreadCount,
       mentionCount: m.mentionCount,
     });
   }
+  return bumps;
 }
 
 export function extractMentions(body: string, userIdsByName: Map<string, string>) {

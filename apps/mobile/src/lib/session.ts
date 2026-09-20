@@ -1,12 +1,20 @@
-let signedOut: (() => void) | null = null;
+let expired: ((accountId: string | null) => void) | null = null;
 
-export function onSignedOut(cb: () => void) {
-  signedOut = cb;
+export function onAccountExpired(cb: (accountId: string | null) => void) {
+  expired = cb;
   return () => {
-    if (signedOut === cb) signedOut = null;
+    if (expired === cb) expired = null;
   };
 }
 
+export function notifyAccountExpired(accountId: string | null) {
+  expired?.(accountId);
+}
+
+export function onSignedOut(cb: () => void) {
+  return onAccountExpired(() => cb());
+}
+
 export function notifySignedOut() {
-  signedOut?.();
+  notifyAccountExpired(null);
 }

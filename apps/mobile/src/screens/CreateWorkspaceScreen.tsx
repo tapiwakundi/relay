@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { api, signOut } from "../lib/auth";
+import { useAccounts } from "../lib/account-manager";
+import { api } from "../lib/auth";
 import { queryClient, keys } from "../lib/query";
-import { notifySignedOut } from "../lib/session";
 import { Glass } from "../ui/Glass";
 import { Wallpaper } from "../ui/Wallpaper";
 import { colors, radii, space } from "../ui/theme";
 
 export function CreateWorkspaceScreen({ onCreated }: { onCreated: () => void }) {
+  const { removeAccount, startAddAccount } = useAccounts();
   const [name, setName] = useState("");
   const [invite, setInvite] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -73,13 +74,10 @@ export function CreateWorkspaceScreen({ onCreated }: { onCreated: () => void }) 
           <Pressable style={styles.alt} onPress={() => void accept()} disabled={busy || !invite.trim()}>
             <Text style={styles.altTxt}>Accept invite</Text>
           </Pressable>
-          <Pressable
-            onPress={async () => {
-              await signOut();
-              queryClient.clear();
-              notifySignedOut();
-            }}
-          >
+          <Pressable onPress={() => startAddAccount()}>
+            <Text style={styles.out}>Sign in with another account</Text>
+          </Pressable>
+          <Pressable onPress={() => void removeAccount()}>
             <Text style={styles.out}>Sign out</Text>
           </Pressable>
         </Glass>

@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { createApp } from "../src/app.js";
 import type { Auth } from "../src/better-auth.js";
 import { createDb, type AppDb } from "../src/db/index.js";
-import { attachment, channel, huddle, message } from "../src/db/schema.js";
+import { attachment, channel, deviceToken, huddle, message } from "../src/db/schema.js";
 import { Hub } from "../src/hub.js";
 
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -178,14 +178,19 @@ describe.skipIf(!process.env.DATABASE_URL)("v1 api integration", () => {
     const open = await db.select().from(huddle).where(eq(huddle.channelId, general.id));
     expect(open.filter((h) => !h.endedAt)).toHaveLength(1);
 
-    await api("alice", "/api/device-tokens", {
+    const aliceTok = await api("alice", "/api/device-tokens", {
       method: "POST",
       body: JSON.stringify({ token: `tok-${suffix}`, platform: "ios" }),
     });
-    await api("bob", "/api/device-tokens", {
+    const bobTok = await api("bob", "/api/device-tokens", {
       method: "POST",
       body: JSON.stringify({ token: `tok-${suffix}`, platform: "ios" }),
     });
+    expect(aliceTok.status).toBe(200);
+    expect(bobTok.status).toBe(200);
+    const tokens = await db.select().from(deviceToken);
+    const shared = tokens.filter((row) => row.token === `tok-${suffix}`);
+    expect(shared.map((row) => row.userId).sort()).toEqual([alice.id, bob.id].sort());
 
     const selected = await api("bob", `/api/workspaces/${bId}/select`, { method: "POST" });
     expect(selected.status).toBe(200);

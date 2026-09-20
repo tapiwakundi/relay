@@ -8,6 +8,7 @@ export const queryClient = new QueryClient({
 });
 
 let activeWorkspaceId: string | null = null;
+let activeAccountId: string | null = null;
 
 export function setActiveWorkspaceId(id: string | null) {
   activeWorkspaceId = id;
@@ -15,6 +16,14 @@ export function setActiveWorkspaceId(id: string | null) {
 
 export function getActiveWorkspaceId() {
   return activeWorkspaceId;
+}
+
+export function setActiveAccountId(id: string | null) {
+  activeAccountId = id;
+}
+
+export function getActiveAccountId() {
+  return activeAccountId;
 }
 
 export const keys = {

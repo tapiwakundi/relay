@@ -8,6 +8,13 @@
       "when": 1789860869884,
       "tag": "0000_clumsy_tempest",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789865078679,
+      "tag": "0001_lying_frog_thor",
+      "breakpoints": true
     }
   ]
 }

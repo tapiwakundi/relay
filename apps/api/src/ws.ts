@@ -73,6 +73,15 @@ export function attachSockets(opts: {
           hub.send(ws, { type: "ready", userId, activeWorkspaceId: event.workspaceId });
           return;
         }
+        if (event.type === "watch") {
+          await requireChannelMember(db, event.channelId, userId);
+          hub.watch(client, event.channelId);
+          return;
+        }
+        if (event.type === "unwatch") {
+          hub.unwatch(client, event.channelId);
+          return;
+        }
         if (event.type === "subscribe") {
           await requireChannelMember(db, event.channelId, userId);
           hub.subscribe(client, event.channelId);

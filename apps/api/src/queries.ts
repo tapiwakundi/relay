@@ -372,12 +372,38 @@ export async function listWorkspaceSummaries(db: AppDb, userId: string): Promise
     .from(workspaceMember)
     .innerJoin(workspace, eq(workspace.id, workspaceMember.workspaceId))
     .where(and(eq(workspaceMember.userId, userId), isNull(workspaceMember.leftAt), isNull(workspace.deletedAt)));
+  const unreadRows = await db
+    .select({
+      workspaceId: channelMember.workspaceId,
+      unreadTotal: sql<number>`coalesce(sum(${channelMember.unreadCount}), 0)::int`,
+      mentionTotal: sql<number>`coalesce(sum(${channelMember.mentionCount}), 0)::int`,
+    })
+    .from(channelMember)
+    .where(and(eq(channelMember.userId, userId), isNull(channelMember.leftAt)))
+    .groupBy(channelMember.workspaceId);
+  const unreadByWorkspace = new Map(unreadRows.map((row) => [row.workspaceId, row]));
   return Promise.all(
-    rows.map(async ({ workspace: ws, membership }) => ({
-      ...(await toPublicWorkspace(ws)),
-      role: membership.role,
-    })),
+    rows.map(async ({ workspace: ws, membership }) => {
+      const unread = unreadByWorkspace.get(ws.id);
+      return {
+        ...(await toPublicWorkspace(ws)),
+        role: membership.role,
+        unreadTotal: unread?.unreadTotal ?? 0,
+        mentionTotal: unread?.mentionTotal ?? 0,
+      };
+    }),
   );
+}
+
+export async function listWatchChannels(db: AppDb, userId: string): Promise<{ id: string; workspaceId: string }[]> {
+  return db
+    .select({
+      id: channelMember.channelId,
+      workspaceId: channelMember.workspaceId,
+    })
+    .from(channelMember)
+    .innerJoin(channel, eq(channel.id, channelMember.channelId))
+    .where(and(eq(channelMember.userId, userId), isNull(channelMember.leftAt), isNull(channel.deletedAt)));
 }
 
 export async function searchMessages(db: AppDb, userId: string, workspaceId: string, q: string, limit = 20) {

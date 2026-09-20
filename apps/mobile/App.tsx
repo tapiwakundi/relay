@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import * as Linking from "expo-linking";
 import { StatusBar } from "expo-status-bar";
-import { api, getAccessToken } from "./src/lib/auth";
+import { AccountManager, useAccounts } from "./src/lib/account-manager";
+import { api } from "./src/lib/auth";
 import { keys, queryClient, type MeResponse } from "./src/lib/query";
-import { onSignedOut } from "./src/lib/session";
 import { WorkspaceProvider } from "./src/lib/workspace";
 import { RootNav } from "./src/nav/Root";
 import { CreateWorkspaceScreen } from "./src/screens/CreateWorkspaceScreen";
@@ -20,10 +20,12 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <View style={styles.root}>
-            <Wallpaper />
-            <Gate />
-          </View>
+          <AccountManager>
+            <View style={styles.root}>
+              <Wallpaper />
+              <Gate />
+            </View>
+          </AccountManager>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
@@ -31,20 +33,7 @@ export default function App() {
 }
 
 function Gate() {
-  const [ready, setReady] = useState(false);
-  const [authed, setAuthed] = useState(false);
-
-  useEffect(() => {
-    getAccessToken()
-      .then((t) => setAuthed(Boolean(t)))
-      .catch(() => setAuthed(false))
-      .finally(() => setReady(true));
-  }, []);
-
-  useEffect(() => onSignedOut(() => {
-    queryClient.clear();
-    setAuthed(false);
-  }), []);
+  const { ready, activeAccountId, adding, cancelAddAccount } = useAccounts();
 
   useEffect(() => {
     const accept = async (url: string) => {
@@ -67,34 +56,24 @@ function Gate() {
 
   const meQ = useQuery({
     queryKey: keys.me,
-    enabled: authed,
+    enabled: Boolean(activeAccountId) && !adding,
     queryFn: () => api<MeResponse>("/api/me"),
   });
 
   if (!ready) return <Splash />;
-  if (!authed) {
-    return (
-      <LoginScreen
-        onAuthed={() => {
-          setAuthed(true);
-          void queryClient.invalidateQueries({ queryKey: keys.me });
-        }}
-      />
-    );
+  if (adding) {
+    return <LoginScreen add onCancel={() => void cancelAddAccount()} />;
+  }
+  if (!activeAccountId) {
+    return <LoginScreen />;
   }
   if (meQ.isLoading) return <Splash />;
   if (!meQ.data?.workspace) {
-    return (
-      <CreateWorkspaceScreen
-        onCreated={() => {
-          void queryClient.invalidateQueries({ queryKey: keys.me });
-        }}
-      />
-    );
+    return <CreateWorkspaceScreen onCreated={() => void queryClient.invalidateQueries({ queryKey: keys.me })} />;
   }
 
   return (
-    <WorkspaceProvider>
+    <WorkspaceProvider key={activeAccountId}>
       <RootNav />
     </WorkspaceProvider>
   );

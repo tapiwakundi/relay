@@ -12,7 +12,7 @@ import {
 import { getAuthUser } from "./auth.js";
 import type { Auth } from "./better-auth.js";
 import { message, reaction, user, workspace, workspaceMember } from "./db/schema.js";
-import { registerDeviceToken } from "./domain.js";
+import { registerDeviceToken, unregisterDeviceToken } from "./domain.js";
 import { handle, routeParam } from "./errors.js";
 import { joinHuddle, leaveHuddle } from "./huddle.js";
 import { type Hub } from "./hub.js";
@@ -21,6 +21,7 @@ import {
   getMembers,
   hydrateHuddle,
   hydrateMessages,
+  listWatchChannels,
   listWorkspaceSummaries,
   loadChannelMessages,
   loadWorkspaceChannels,
@@ -301,11 +302,28 @@ export function createApp(opts: { db: AppDb; hub: Hub; auth: Auth }) {
     }),
   );
 
+  authed.get(
+    "/watch-channels",
+    handle(async (c) => {
+      const channels = await listWatchChannels(db, c.get("userId"));
+      return c.json({ channels });
+    }),
+  );
+
   authed.post(
     "/device-tokens",
     handle(async (c) => {
       const { token, platform } = await c.req.json<{ token: string; platform: string }>();
       await registerDeviceToken(db, { userId: c.get("userId"), token, platform });
+      return c.json({ ok: true });
+    }),
+  );
+
+  authed.delete(
+    "/device-tokens",
+    handle(async (c) => {
+      const { token } = await c.req.json<{ token: string }>();
+      await unregisterDeviceToken(db, { userId: c.get("userId"), token });
       return c.json({ ok: true });
     }),
   );

@@ -4,6 +4,7 @@ import { HttpError, requireAttachment, requireChannelMember } from "./access.js"
 import type { AppDb } from "./db/index.js";
 import { attachment, message, user, workspaceMember } from "./db/schema.js";
 import { bumpUnread, extractMentions, type Hub } from "./hub.js";
+import { notifyUnreadPush } from "./push.js";
 import { hydrateMessages, mentionMap } from "./queries.js";
 
 export async function createChatMessage(
@@ -74,7 +75,8 @@ export async function createChatMessage(
 
     hub.broadcastToChannel(opts.channelId, { type: "message.created", message: hydrated });
     const names = await mentionMap(db, access.workspaceId);
-    await bumpUnread(db, hub, opts.channelId, opts.userId, extractMentions(text, names));
+    const bumps = await bumpUnread(db, hub, opts.channelId, opts.userId, extractMentions(text, names));
+    await notifyUnreadPush(db, hub, bumps, hydrated);
     return { ok: true, message: hydrated };
   } catch (err) {
     if (err instanceof HttpError) return { ok: false, status: err.status, error: err.message };

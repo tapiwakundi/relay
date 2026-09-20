@@ -32,7 +32,7 @@ function packagedApiUrl(command: "build" | "serve") {
 
 export default defineConfig(({ command }) => ({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ["@relay/shared"] })],
     define: {
       RELAY_PACKAGED_API_URL: JSON.stringify(packagedApiUrl(command)),
     },

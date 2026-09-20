@@ -8,6 +8,7 @@
     "dev": "electron-vite dev --watch",
     "build": "electron-vite build",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
+    "test": "tsx --test test/*.test.ts",
     "dist": "electron-vite build && electron-builder --mac --arm64"
   },
   "dependencies": {
@@ -32,6 +33,7 @@
     "electron": "^37.4.0",
     "electron-builder": "^26.0.12",
     "electron-vite": "^4.0.1",
+    "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "vite": "^7.1.5"
   }

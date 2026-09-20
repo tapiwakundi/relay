@@ -1,7 +1,11 @@
 import type { WsClientEvent, WsServerEvent } from "@relay/shared";
-import { getAccessToken, wsOrigin } from "./auth";
+import { wsOrigin } from "./auth";
 
-export function connectWs(onEvent: (e: WsServerEvent) => void, onOpen?: () => void) {
+export function connectWs(
+  onEvent: (e: WsServerEvent) => void,
+  onOpen?: () => void,
+  token?: string | null,
+) {
   let ws: WebSocket | null = null;
   let closed = false;
   let retries = 0;
@@ -14,7 +18,6 @@ export function connectWs(onEvent: (e: WsServerEvent) => void, onOpen?: () => vo
   };
 
   const open = async () => {
-    const token = await getAccessToken();
     const qs = token ? `?token=${encodeURIComponent(token)}` : "";
     ws = new WebSocket(`${wsOrigin()}${qs}`);
     ws.onmessage = (ev) => {
@@ -48,3 +51,5 @@ export function connectWs(onEvent: (e: WsServerEvent) => void, onOpen?: () => vo
     },
   };
 }
+
+export type SocketConn = ReturnType<typeof connectWs>;

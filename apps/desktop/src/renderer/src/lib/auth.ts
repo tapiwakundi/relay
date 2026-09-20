@@ -1,5 +1,5 @@
 import type { ApiRequest } from "../../../shared/ipc";
-import { getActiveWorkspaceId } from "./query";
+import { getActiveAccountId, getActiveWorkspaceId } from "./query";
 
 async function requestBody(init?: RequestInit): Promise<Pick<ApiRequest, "body" | "form">> {
   const body = init?.body;
@@ -33,6 +33,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     path,
     method: init?.method,
     headers,
+    accountId: getActiveAccountId() ?? undefined,
     ...payload,
   });
   if (response.status === 401) throw new Error("unauthorized");
@@ -46,23 +47,23 @@ export async function getSession() {
   return user ? { user } : null;
 }
 
-export async function signInEmail(email: string, password: string) {
-  return window.relayDesktop.signInEmail(email, password);
+export async function signInEmail(email: string, password: string, add = false) {
+  return window.relayDesktop.signInEmail(email, password, { add });
 }
 
-export async function signUpEmail(name: string, email: string, password: string) {
-  return window.relayDesktop.signUpEmail(name, email, password);
+export async function signUpEmail(name: string, email: string, password: string, add = false) {
+  return window.relayDesktop.signUpEmail(name, email, password, { add });
 }
 
-export async function signInGoogle(): Promise<{ error: { message: string } | null }> {
+export async function signInGoogle(add = false): Promise<{ error: { message: string } | null }> {
   try {
-    await window.relayDesktop.requestAuth({ provider: "google" });
+    await window.relayDesktop.requestAuth({ provider: "google", add });
     return { error: null };
   } catch (error) {
     return { error: { message: error instanceof Error ? error.message : "Google sign-in failed" } };
   }
 }
 
-export async function signOut() {
-  await window.relayDesktop.signOut();
+export async function signOut(accountId?: string) {
+  await window.relayDesktop.signOut(accountId);
 }

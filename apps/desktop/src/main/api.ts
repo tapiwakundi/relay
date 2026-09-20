@@ -1,4 +1,5 @@
-import { API_ORIGIN, authClient } from "./auth";
+import { API_ORIGIN } from "./auth";
+import { cookieForAccount, dropInvalidAccount, getActiveAccountId } from "./accounts";
 import type { ApiRequest, ApiResponse } from "../shared/ipc";
 
 const MAX_BYTES = 50 * 1024 * 1024;
@@ -12,7 +13,8 @@ function assertPath(path: string) {
 export async function proxyApi(request: ApiRequest): Promise<ApiResponse> {
   assertPath(request.path);
   const headers = new Headers();
-  const cookie = authClient.getCookie();
+  const accountId = request.accountId ?? getActiveAccountId();
+  const cookie = cookieForAccount(accountId);
   if (cookie) headers.set("cookie", cookie);
   if (request.headers) {
     for (const [key, value] of Object.entries(request.headers)) {
@@ -40,5 +42,7 @@ export async function proxyApi(request: ApiRequest): Promise<ApiResponse> {
     headers,
     body,
   });
-  return { status: response.status, body: await response.text() };
+  const payload = { status: response.status, body: await response.text() };
+  if (payload.status === 401 && accountId) void dropInvalidAccount(accountId);
+  return payload;
 }

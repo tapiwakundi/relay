@@ -398,14 +398,15 @@ export const deviceToken = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    token: text("token").notNull().unique(),
+    token: text("token").notNull(),
     platform: devicePlatform("platform").notNull(),
     createdAt: timestamptz("created_at").notNull().defaultNow(),
     updatedAt: timestamptz("updated_at").notNull().defaultNow(),
     lastUsedAt: timestamptz("last_used_at"),
   },
   (t) => [
-    uniqueIndex("device_token_user_platform_uidx").on(t.userId, t.platform),
+    uniqueIndex("device_token_user_token_uidx").on(t.userId, t.token),
+    index("device_token_token_idx").on(t.token),
     index("device_token_user_idx").on(t.userId),
   ],
 );

@@ -3,7 +3,7 @@ import logo from "../assets/logo.png";
 import { GoogleG } from "./Icons";
 import { signInEmail, signInGoogle, signUpEmail } from "../lib/auth";
 
-export function LoginScreen() {
+export function LoginScreen({ add, onCancel }: { add?: boolean; onCancel?: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"signin" | "signup">(
@@ -20,7 +20,7 @@ export function LoginScreen() {
     setBusy(true);
     setError(null);
     try {
-      const { error: err } = await signInGoogle();
+      const { error: err } = await signInGoogle(add);
       if (err) setError(err.message ?? "Google sign-in failed");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Google sign-in failed");
@@ -36,14 +36,13 @@ export function LoginScreen() {
     try {
       const result =
         mode === "signup"
-          ? await signUpEmail(name || email.split("@")[0], email, password)
-          : await signInEmail(email, password);
+          ? await signUpEmail(name || email.split("@")[0], email, password, add)
+          : await signInEmail(email, password, add);
       if (result.error) {
         setError(result.error.message ?? "Couldn’t sign in");
         setBusy(false);
         return;
       }
-      window.location.reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn’t sign in");
       setBusy(false);
@@ -52,11 +51,22 @@ export function LoginScreen() {
 
   return (
     <div className="login">
+      {add ? (
+        <div className="login-top">
+          <button type="button" className="btn-ghost" onClick={onCancel}>
+            Cancel
+          </button>
+        </div>
+      ) : null}
       <div className="login-card">
         <img className="login-logo" src={logo} width={72} height={72} alt="Relay" />
-        <h1>{mode === "signup" ? "Create an account" : "Sign in to Relay"}</h1>
+        <h1>{add ? "Sign in with another account" : mode === "signup" ? "Create an account" : "Sign in to Relay"}</h1>
         <div className="sub">
-          {invited ? "You’ve been invited to a workspace. Use the same email the invite was sent to." : "Email and password, or Google"}
+          {add
+            ? "Use a different email or Google account. Your current account stays signed in."
+            : invited
+              ? "You’ve been invited to a workspace. Use the same email the invite was sent to."
+              : "Email and password, or Google"}
         </div>
         {error ? <div className="login-error">{error}</div> : null}
         <button className="btn-google" onClick={google} disabled={busy} type="button">

@@ -26,6 +26,14 @@ export const relayChannels = {
   pendingInvites: "relay:pending-invites",
   prepareMedia: "relay:prepare-media",
   showEmojiPanel: "relay:show-emoji-panel",
+  listAccounts: "relay:accounts-list",
+  switchAccount: "relay:accounts-switch",
+  startAddAccount: "relay:accounts-add-start",
+  cancelAddAccount: "relay:accounts-add-cancel",
+  requestAuth: "relay:request-auth",
+  completeAuth: "relay:accounts-complete",
+  removeAccount: "relay:accounts-remove",
+  accountsChanged: "relay:accounts-changed",
   getUpdateState: "relay:update-state-get",
   checkForUpdates: "relay:update-check",
   downloadUpdate: "relay:update-download",
@@ -43,6 +51,7 @@ export type ApiRequest = {
   body?: string;
   form?: FormPart[];
   headers?: Record<string, string>;
+  accountId?: string;
 };
 
 export type ApiResponse = {
@@ -75,20 +84,61 @@ export type UpdateState = {
   message?: string;
 };
 
+export type DesktopAccount = {
+  id: string;
+  email: string;
+  name: string;
+  image: string | null;
+  activeWorkspaceId: string | null;
+  unreadTotal: number;
+  mentionTotal: number;
+};
+
+export type AccountsSnapshot = {
+  accounts: DesktopAccount[];
+  activeAccountId: string | null;
+  adding: boolean;
+};
+
+export type AuthMode = {
+  add?: boolean;
+};
+
+export type RealtimeEnvelope = {
+  accountId: string;
+  event: unknown;
+};
+
+export type NavigatePayload = {
+  accountId: string;
+  workspaceId?: string;
+  channelId: string;
+};
+
 export interface RelayDesktop {
   api(request: ApiRequest): Promise<ApiResponse>;
-  signInEmail(email: string, password: string): Promise<AuthResult>;
-  signUpEmail(name: string, email: string, password: string): Promise<AuthResult>;
-  requestAuth(options?: { provider?: string }): Promise<void>;
-  signOut(): Promise<void>;
+  signInEmail(email: string, password: string, options?: AuthMode): Promise<AuthResult>;
+  signUpEmail(name: string, email: string, password: string, options?: AuthMode): Promise<AuthResult>;
+  requestAuth(options?: { provider?: string; add?: boolean }): Promise<void>;
+  signOut(accountId?: string): Promise<void>;
   getUser(): Promise<{ id: string; email?: string; name?: string } | null>;
+  listAccounts(): Promise<AccountsSnapshot>;
+  switchAccount(accountId: string): Promise<void>;
+  startAddAccount(): Promise<void>;
+  cancelAddAccount(): Promise<void>;
+  completeAuth(): Promise<AuthResult & { duplicate?: boolean }>;
+  removeAccount(accountId: string): Promise<void>;
+  onAccountsChanged(callback: (snapshot: AccountsSnapshot) => void): () => void;
   onAuthenticated(callback: () => void): () => void;
   onAuthError(callback: (message: string) => void): () => void;
-  connectRealtime(onEvent: (event: unknown) => void, onOpen: () => void): () => void;
+  connectRealtime(
+    onEvent: (envelope: RealtimeEnvelope) => void,
+    onOpen: (accountId?: string) => void,
+  ): () => void;
   sendRealtime(event: unknown): Promise<void>;
   setBadge(count: number): Promise<void>;
   setActiveChannel(channelId: string | null): Promise<void>;
-  onNavigate(callback: (channelId: string) => void): () => void;
+  onNavigate(callback: (payload: NavigatePayload) => void): () => void;
   onInvite(callback: (token: string) => void): () => void;
   pendingInvites(): Promise<string[]>;
   prepareMedia(): Promise<MediaAccess>;

@@ -9,7 +9,8 @@
     "ios": "pnpm setup:env && expo run:ios --device 00008140-001C50401A9B001C",
     "ios:sim": "pnpm setup:env && expo run:ios",
     "android": "pnpm setup:env && expo run:android --device",
-    "prebuild": "expo prebuild"
+    "prebuild": "expo prebuild",
+    "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@better-auth/expo": "^1.7.5",
@@ -47,6 +48,7 @@
     "metro-config": "^0.87.1",
     "metro-resolver": "^0.87.1",
     "metro-runtime": "^0.87.1",
+    "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   }
 }

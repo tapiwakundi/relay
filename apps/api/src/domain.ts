@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { Channel } from "@relay/shared";
 import { HttpError, requireWorkspaceMember, setActiveWorkspace } from "./access.js";
 import type { AppDb } from "./db/index.js";
@@ -343,22 +343,36 @@ export async function registerDeviceToken(
   const platform = normalizePlatform(opts.platform);
   const token = opts.token.trim();
   if (!token) throw new HttpError(400, "Token required");
-  await db.transaction(async (tx) => {
-    await tx.delete(deviceToken).where(eq(deviceToken.token, token));
-    await tx
-      .insert(deviceToken)
-      .values({
-        userId: opts.userId,
-        token,
-        platform,
-        updatedAt: new Date(),
-        lastUsedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: [deviceToken.userId, deviceToken.platform],
-        set: { token, updatedAt: new Date(), lastUsedAt: new Date() },
-      });
-  });
+  await db
+    .insert(deviceToken)
+    .values({
+      userId: opts.userId,
+      token,
+      platform,
+      updatedAt: new Date(),
+      lastUsedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [deviceToken.userId, deviceToken.token],
+      set: { platform, updatedAt: new Date(), lastUsedAt: new Date() },
+    });
+}
+
+export async function unregisterDeviceToken(
+  db: AppDb,
+  opts: { userId: string; token: string },
+) {
+  const token = opts.token.trim();
+  if (!token) throw new HttpError(400, "Token required");
+  await db
+    .delete(deviceToken)
+    .where(and(eq(deviceToken.userId, opts.userId), eq(deviceToken.token, token)));
+}
+
+export async function removeDeviceTokens(db: AppDb, tokens: string[]) {
+  const unique = [...new Set(tokens.map((t) => t.trim()).filter(Boolean))];
+  if (!unique.length) return;
+  await db.delete(deviceToken).where(inArray(deviceToken.token, unique));
 }
 
 function normalizePlatform(value: string): "ios" | "android" | "desktop" | "web" {

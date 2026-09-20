@@ -50,6 +50,7 @@ export function ChatView({
 
   useEffect(() => {
     sendWs({ type: "subscribe", channelId: channel.id });
+    return () => sendWs({ type: "unsubscribe", channelId: channel.id });
   }, [channel.id, sendWs]);
 
   const messages = msgQ.data?.messages ?? [];

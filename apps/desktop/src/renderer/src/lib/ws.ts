@@ -1,13 +1,17 @@
 import type { WsClientEvent, WsServerEvent } from "@relay/shared";
 
-export function connectWs(onEvent: (event: WsServerEvent) => void, onOpen?: () => void) {
+export function connectWs(
+  onEvent: (event: WsServerEvent, accountId: string) => void,
+  onOpen?: (accountId?: string) => void,
+) {
   let closed = false;
   const stop = window.relayDesktop.connectRealtime(
-    (event) => {
-      if (!closed) onEvent(event as WsServerEvent);
+    (envelope) => {
+      if (closed) return;
+      onEvent(envelope.event as WsServerEvent, envelope.accountId);
     },
-    () => {
-      if (!closed) onOpen?.();
+    (accountId) => {
+      if (!closed) onOpen?.(accountId);
     },
   );
   return {

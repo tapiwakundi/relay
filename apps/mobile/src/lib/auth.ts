@@ -2,8 +2,10 @@ import { createAuthClient } from "better-auth/react";
 import { expoClient } from "@better-auth/expo/client";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
-import { notifySignedOut } from "./session";
+import { notifyAccountExpired } from "./session";
 import { getActiveWorkspaceId } from "./query";
+import { createMobileAccountVault, type StoredAccount } from "./account-vault";
+import { accountAuthHeaders } from "./account-headers";
 
 export function apiOrigin() {
   const env = process.env.EXPO_PUBLIC_API_URL;
@@ -18,16 +20,52 @@ export function wsOrigin() {
   return apiOrigin().replace(/^http/, "ws") + "/ws";
 }
 
-export const authClient = createAuthClient({
-  baseURL: apiOrigin(),
-  plugins: [
-    expoClient({
-      scheme: "relay",
-      storagePrefix: "relay",
-      storage: SecureStore,
-    }),
-  ],
-});
+const kv = {
+  getItem: (key: string) => SecureStore.getItemAsync(key),
+  setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
+  deleteItem: (key: string) => SecureStore.deleteItemAsync(key),
+};
+
+export const accountVault = createMobileAccountVault(kv);
+
+export function makeAuthClient(prefix: string) {
+  return createAuthClient({
+    baseURL: apiOrigin(),
+    plugins: [
+      expoClient({
+        scheme: "relay",
+        storagePrefix: prefix,
+        storage: SecureStore,
+      }),
+    ],
+  });
+}
+
+export const authClient = makeAuthClient("relay");
+export const pendingAuthClient = makeAuthClient("relay.pending");
+
+let activeAccountId: string | null = null;
+let adding = false;
+
+export function getActiveAccountId() {
+  return activeAccountId;
+}
+
+export function setActiveAccountId(id: string | null) {
+  activeAccountId = id;
+}
+
+export function setAddingAccount(value: boolean) {
+  adding = value;
+}
+
+export function isAddingAccount() {
+  return adding;
+}
+
+export function liveClient() {
+  return adding ? pendingAuthClient : authClient;
+}
 
 function tokenFrom(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
@@ -54,27 +92,52 @@ function sessionTokenFromCookie(cookie: string): string | null {
   return null;
 }
 
-export async function getAccessToken() {
-  const { data, error } = await authClient.getSession();
-  if (error) return null;
-  if (!data?.user) return null;
-  return tokenFrom(data) ?? sessionTokenFromCookie(await authClient.getCookie());
+export async function extractCredentials(client = liveClient()): Promise<StoredAccount | null> {
+  const { data, error } = await client.getSession();
+  if (error || !data?.user) return null;
+  const cookie = await client.getCookie();
+  const token = tokenFrom(data) ?? sessionTokenFromCookie(cookie) ?? "";
+  if (!token && !cookie) return null;
+  return {
+    id: data.user.id,
+    email: data.user.email,
+    name: data.user.name,
+    image: data.user.image ?? null,
+    activeWorkspaceId: null,
+    unreadTotal: 0,
+    mentionTotal: 0,
+    token,
+    cookie,
+  };
 }
 
-export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getAccessToken();
-  const cookie = await authClient.getCookie();
+export async function getAccessToken(accountId = activeAccountId) {
+  if (accountId) {
+    const creds = await accountVault.credentials(accountId);
+    if (creds?.token) return creds.token;
+  }
+  const { data, error } = await liveClient().getSession();
+  if (error) return null;
+  if (!data?.user) return null;
+  return tokenFrom(data) ?? sessionTokenFromCookie(await liveClient().getCookie());
+}
+
+export async function api<T>(path: string, init?: RequestInit, accountId?: string): Promise<T> {
+  const id = accountId ?? activeAccountId;
+  const creds = id ? await accountVault.credentials(id) : null;
+  const token = creds?.token || (await getAccessToken(id));
+  const cookie = creds?.cookie || (await liveClient().getCookie());
   const headers = new Headers(init?.headers);
   const workspaceId = getActiveWorkspaceId();
   if (workspaceId) headers.set("x-relay-workspace-id", workspaceId);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  if (cookie) headers.set("Cookie", cookie);
+  const auth = accountAuthHeaders({ token: token ?? "", cookie: cookie ?? "" });
+  for (const [key, value] of Object.entries(auth)) headers.set(key, value);
   if (!(init?.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
   const res = await fetch(`${apiOrigin()}${path}`, { ...init, headers, credentials: "omit" });
   if (res.status === 401) {
-    notifySignedOut();
+    notifyAccountExpired(id);
     throw new Error("unauthorized");
   }
   if (!res.ok) {
@@ -86,21 +149,15 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function signInEmail(email: string, password: string) {
-  return authClient.signIn.email({ email, password });
+  return liveClient().signIn.email({ email, password });
 }
 
 export async function signUpEmail(name: string, email: string, password: string) {
-  return authClient.signUp.email({ name, email, password });
+  return liveClient().signUp.email({ name, email, password });
 }
 
 export async function signInGoogle() {
-  // Google rejects private-IP redirect URIs (`192.168.x.x`) with
-  // "device_id and device_name are required". The Cloud Console client is a
-  // Web application registered at localhost, so tell Better Auth to build
-  // Google's callback as http://localhost:3001/api/auth/callback/google.
-  // iOS Simulator can reach the Mac on localhost; a physical phone cannot
-  // (use email sign-in, or a public tunnel, for on-device Google).
-  return authClient.signIn.social({
+  return liveClient().signIn.social({
     provider: "google",
     callbackURL: "/",
     fetchOptions: {
@@ -112,12 +169,39 @@ export async function signInGoogle() {
   });
 }
 
+export async function signOutClient(client = liveClient()) {
+  await client.signOut();
+}
+
 export async function signOut() {
-  await authClient.signOut();
+  const id = activeAccountId;
+  if (id) {
+    const creds = await accountVault.credentials(id);
+    if (creds?.token || creds?.cookie) {
+      try {
+        const headers = new Headers(accountAuthHeaders(creds));
+        await fetch(`${apiOrigin()}/api/auth/sign-out`, { method: "POST", headers, credentials: "omit" });
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  await liveClient().signOut().catch(() => null);
 }
 
 export async function getSession() {
-  const { data, error } = await authClient.getSession();
+  if (activeAccountId) {
+    const creds = await accountVault.credentials(activeAccountId);
+    if (creds?.token) {
+      try {
+        const me = await api<{ user: { id: string; email: string; name: string; image: string | null } }>("/api/me", undefined, activeAccountId);
+        return { user: me.user, session: { token: creds.token } };
+      } catch {
+        return null;
+      }
+    }
+  }
+  const { data, error } = await liveClient().getSession();
   if (error || !data?.user) return null;
   return data;
 }

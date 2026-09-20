@@ -3,8 +3,8 @@ import { resolve } from "node:path";
 import { app } from "electron";
 import { createAuthClient } from "better-auth/client";
 import { electronClient } from "@better-auth/electron/client";
-import { storage } from "@better-auth/electron/storage";
 import { APP_ID, AUTH_SCHEME } from "../shared/ipc";
+import { vaultStorage } from "./account-conf";
 
 app.setName("Relay");
 app.setAppUserModelId(APP_ID);
@@ -35,7 +35,7 @@ export const authClient = createAuthClient({
     electronClient({
       signInURL: `${API_ORIGIN}/desktop/callback`,
       protocol: { scheme: AUTH_SCHEME },
-      storage: storage(),
+      storage: vaultStorage(),
       userImageProxy: { enabled: false },
     }),
   ],

@@ -2,9 +2,8 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { api, signOut } from "../lib/auth";
-import { queryClient } from "../lib/query";
-import { notifySignedOut } from "../lib/session";
+import { useAccounts } from "../lib/account-manager";
+import { api } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";
 import { Avatar } from "../ui/Avatar";
 import { Glass } from "../ui/Glass";
@@ -16,6 +15,7 @@ export function YouScreen() {
   const insets = useSafeAreaInsets();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { me, workspace, workspaces, selectWorkspace } = useWorkspace();
+  const { accounts, activeAccountId, switchAccount, removeAccount } = useAccounts();
 
   async function setPresence(presence: string) {
     await api("/api/me", { method: "PATCH", body: JSON.stringify({ presence }) });
@@ -53,21 +53,41 @@ export function YouScreen() {
           ))}
         </Glass>
 
-        <Text style={styles.sec}>Workspaces</Text>
-        <Glass style={styles.group}>
-          {workspaces.map((ws) => (
-            <Pressable
-              key={ws.id}
-              style={styles.row}
-              onPress={() => {
-                void selectWorkspace(ws.id);
-              }}
-            >
-              <Text style={styles.rowTxt}>{ws.name}</Text>
-              {ws.id === workspace.id ? <Text style={styles.check}>✓</Text> : <Text style={styles.chev}>›</Text>}
-            </Pressable>
-          ))}
-        </Glass>
+        <Text style={styles.sec}>Accounts</Text>
+        {(accounts.length ? accounts : [{ id: me.id, email: me.email, name: me.displayName, image: me.image, activeWorkspaceId: workspace.id, unreadTotal: 0, mentionTotal: 0 }]).map((account) => {
+          const mine = account.id === (activeAccountId ?? me.id);
+          return (
+            <View key={account.id} style={{ marginBottom: 10 }}>
+              <Text style={styles.acct}>{account.email || account.name}{account.unreadTotal ? `  ${account.unreadTotal}` : ""}</Text>
+              <Glass style={styles.group}>
+                {mine
+                  ? workspaces.map((ws) => (
+                      <Pressable
+                        key={ws.id}
+                        style={styles.row}
+                        onPress={() => {
+                          void selectWorkspace(ws.id);
+                        }}
+                      >
+                        <Text style={styles.rowTxt}>{ws.name}</Text>
+                        {ws.id === workspace.id ? <Text style={styles.check}>✓</Text> : <Text style={styles.chev}>›</Text>}
+                      </Pressable>
+                    ))
+                  : (
+                      <Pressable style={styles.row} onPress={() => void switchAccount(account.id)}>
+                        <Text style={styles.rowTxt}>Switch to this account</Text>
+                        <Text style={styles.chev}>›</Text>
+                      </Pressable>
+                    )}
+              </Glass>
+            </View>
+          );
+        })}
+        <Pressable onPress={() => nav.navigate("AddWorkspace")}>
+          <Glass style={styles.group}>
+            <Text style={[styles.rowTxt, { padding: 16 }]}>Add a workspace</Text>
+          </Glass>
+        </Pressable>
 
         <Text style={styles.sec}>{workspace.name}</Text>
         <Glass style={styles.group}>
@@ -81,15 +101,13 @@ export function YouScreen() {
         <Pressable
           style={{ marginTop: 18 }}
           onPress={() => {
-            Alert.alert("Sign out?", undefined, [
+            Alert.alert("Sign out?", `Sign out ${me.email}? Other accounts stay signed in.`, [
               { text: "Cancel", style: "cancel" },
               {
                 text: "Sign out",
                 style: "destructive",
-                onPress: async () => {
-                  await signOut();
-                  queryClient.clear();
-                  notifySignedOut();
+                onPress: () => {
+                  void removeAccount();
                 },
               },
             ]);
@@ -140,5 +158,12 @@ const styles = StyleSheet.create({
   rowTxt: { color: colors.ink, fontSize: 16, fontWeight: "600" },
   chev: { color: colors.faint, fontSize: 22 },
   check: { color: colors.green, fontWeight: "800" },
+  acct: {
+    color: colors.muted,
+    fontWeight: "700",
+    fontSize: 12,
+    marginBottom: 6,
+    marginLeft: 4,
+  },
   out: { color: colors.pink, padding: 16, fontWeight: "800" },
 });

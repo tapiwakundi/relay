@@ -3,9 +3,19 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ipcMain } from "electron";
 import type { WsClientEvent } from "@relay/shared";
-import { relayChannels, type ApiRequest } from "../shared/ipc";
+import { relayChannels, type ApiRequest, type AuthMode } from "../shared/ipc";
 import { proxyApi } from "./api";
 import { API_ORIGIN, authClient } from "./auth";
+import {
+  accountsSnapshot,
+  beginAddAccount,
+  cancelAddAccount,
+  completeAuth,
+  getActiveAccountId,
+  hydrateAccounts,
+  signOutAccount,
+  switchAccount,
+} from "./accounts";
 import { installCapture, prepareMedia } from "./capture";
 import { installDeepLinks, takePendingInvites } from "./deeplink";
 import { installNotifications, setActiveChannel, setBadge } from "./notifications";
@@ -37,29 +47,61 @@ function authMessage(error: unknown, fallback: string) {
 }
 
 ipcMain.handle(relayChannels.api, (_event, request: ApiRequest) => proxyApi(request));
-ipcMain.handle(relayChannels.signInEmail, async (_event, email: unknown, password: unknown) => {
+ipcMain.handle(relayChannels.signInEmail, async (_event, email: unknown, password: unknown, options?: AuthMode) => {
   if (typeof email !== "string" || typeof password !== "string") {
     return { error: { message: "Email and password are required" } };
   }
   try {
+    if (options?.add) beginAddAccount();
     const result = await authClient.signIn.email({ email, password });
-    if (result.error) return { error: { message: result.error.message || "Couldn’t sign in" } };
-    return { error: null };
+    if (result.error) {
+      if (options?.add) cancelAddAccount();
+      return { error: { message: result.error.message || "Couldn’t sign in" } };
+    }
+    return completeAuth();
   } catch (error) {
+    if (options?.add) cancelAddAccount();
     return { error: { message: authMessage(error, "Couldn’t sign in") } };
   }
 });
-ipcMain.handle(relayChannels.signUpEmail, async (_event, name: unknown, email: unknown, password: unknown) => {
+ipcMain.handle(relayChannels.signUpEmail, async (_event, name: unknown, email: unknown, password: unknown, options?: AuthMode) => {
   if (typeof name !== "string" || typeof email !== "string" || typeof password !== "string") {
     return { error: { message: "Name, email, and password are required" } };
   }
   try {
+    if (options?.add) beginAddAccount();
     const result = await authClient.signUp.email({ name, email, password });
-    if (result.error) return { error: { message: result.error.message || "Couldn’t create account" } };
-    return { error: null };
+    if (result.error) {
+      if (options?.add) cancelAddAccount();
+      return { error: { message: result.error.message || "Couldn’t create account" } };
+    }
+    return completeAuth();
   } catch (error) {
+    if (options?.add) cancelAddAccount();
     return { error: { message: authMessage(error, "Couldn’t create account") } };
   }
+});
+ipcMain.handle(relayChannels.requestAuth, async (_event, options?: { provider?: string; add?: boolean }) => {
+  if (options?.add) beginAddAccount();
+  try {
+    await (authClient as typeof authClient & { requestAuth: (opts?: { provider?: string }) => Promise<void> }).requestAuth({
+      provider: options?.provider ?? "google",
+    });
+  } catch (error) {
+    if (options?.add) cancelAddAccount();
+    throw error;
+  }
+});
+ipcMain.handle(relayChannels.listAccounts, () => accountsSnapshot());
+ipcMain.handle(relayChannels.switchAccount, async (_event, accountId: unknown) => {
+  if (typeof accountId !== "string") return;
+  await switchAccount(accountId);
+});
+ipcMain.handle(relayChannels.startAddAccount, () => beginAddAccount());
+ipcMain.handle(relayChannels.cancelAddAccount, () => cancelAddAccount());
+ipcMain.handle(relayChannels.completeAuth, () => completeAuth());
+ipcMain.handle(relayChannels.removeAccount, async (_event, accountId: unknown) => {
+  await signOutAccount(typeof accountId === "string" ? accountId : null);
 });
 ipcMain.handle(relayChannels.realtimeOpen, () => {
   openRealtime();
@@ -68,13 +110,13 @@ ipcMain.handle(relayChannels.realtimeClose, () => {
   closeRealtime();
 });
 ipcMain.handle(relayChannels.realtimeSend, (_event, payload: WsClientEvent) => {
-  sendRealtime(payload);
+  sendRealtime(payload, getActiveAccountId());
 });
 ipcMain.handle(relayChannels.setBadge, (_event, count: unknown) => {
   setBadge(typeof count === "number" ? count : 0);
 });
 ipcMain.handle(relayChannels.setActiveChannel, (_event, channelId: unknown) => {
-  setActiveChannel(typeof channelId === "string" ? channelId : null);
+  setActiveChannel(typeof channelId === "string" ? channelId : null, getActiveAccountId());
 });
 ipcMain.handle(relayChannels.pendingInvites, () => takePendingInvites());
 ipcMain.handle(relayChannels.prepareMedia, () => prepareMedia());
@@ -154,12 +196,13 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   if (!app.isPackaged && process.platform === "darwin") {
     app.dock?.setIcon(appIconPath());
   }
   installCapture();
   installContentSecurityPolicy();
+  await hydrateAccounts();
   createWindow();
 });
 

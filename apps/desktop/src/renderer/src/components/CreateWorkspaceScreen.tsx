@@ -68,7 +68,6 @@ export function CreateWorkspaceScreen({
           className="btn-ghost"
           onClick={async () => {
             await signOut();
-            window.location.reload();
           }}
         >
           Sign out

@@ -112,6 +112,8 @@ export type WsClientEvent =
   | { type: "workspace.select"; workspaceId: string }
   | { type: "subscribe"; channelId: string }
   | { type: "unsubscribe"; channelId: string }
+  | { type: "watch"; channelId: string }
+  | { type: "unwatch"; channelId: string }
   | { type: "message.send"; channelId: string; body: string; parentId?: string | null; clientId?: string; fileKey?: string; fileName?: string; fileContentType?: string }
   | { type: "typing"; channelId: string; parentId?: string | null }
   | { type: "reaction.toggle"; messageId: string; emoji: string }
@@ -192,10 +194,56 @@ export type WsServerEvent =
   | { type: "typing"; channelId: string; userId: string; userName: string; parentId?: string | null }
   | { type: "presence"; workspaceId: string; userId: string; presence: Presence }
   | { type: "huddle.updated"; huddle: Huddle | null; channelId: string; workspaceId?: string }
-  | { type: "unread"; channelId: string; unreadCount: number; mentionCount: number }
+  | { type: "unread"; channelId: string; unreadCount: number; mentionCount: number; workspaceId?: string }
   | { type: "channel.created"; channel: Channel; workspaceId?: string }
   | { type: "workspace.updated"; workspace: Workspace }
   | { type: "member.updated"; workspaceId: string; member: Member }
   | { type: "member.joined"; workspaceId: string; member: Member };
 
 export const EMOJI_QUICK = ["👍", "❤️", "😂", "🎉", "👀", "🔥", "✅", "🙌"] as const;
+
+export type RelayAccountId = string;
+
+export type RelayAccountSummary = {
+  id: RelayAccountId;
+  email: string;
+  name: string;
+  image: string | null;
+  activeWorkspaceId: string | null;
+  unreadTotal: number;
+  mentionTotal: number;
+};
+
+export type RelayAccountSession = {
+  accountId: RelayAccountId;
+  cookie?: string;
+  token?: string;
+};
+
+export type WatchChannel = {
+  id: string;
+  workspaceId: string;
+};
+
+export type PushNotificationData = {
+  accountId: RelayAccountId;
+  workspaceId: string;
+  channelId: string;
+  messageId?: string;
+};
+
+export type AccountNavigation = {
+  accountId: RelayAccountId;
+  workspaceId?: string;
+  channelId: string;
+};
+
+export function unreadTotals(workspaces: { unreadTotal?: number; mentionTotal?: number }[]) {
+  let unreadTotal = 0;
+  let mentionTotal = 0;
+  for (const ws of workspaces) {
+    unreadTotal += ws.unreadTotal ?? 0;
+    mentionTotal += ws.mentionTotal ?? 0;
+  }
+  return { unreadTotal, mentionTotal };
+}
