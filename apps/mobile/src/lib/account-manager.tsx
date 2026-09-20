@@ -72,12 +72,16 @@ export async function currentPushToken() {
 }
 
 async function registerPush(accountId: string) {
-  const token = await currentPushToken();
-  if (!token) return;
-  await api("/api/device-tokens", {
-    method: "POST",
-    body: JSON.stringify({ token, platform: Platform.OS }),
-  }, accountId);
+  try {
+    const token = await currentPushToken();
+    if (!token) return;
+    await api("/api/device-tokens", {
+      method: "POST",
+      body: JSON.stringify({ token, platform: Platform.OS }),
+    }, accountId);
+  } catch {
+    /* push registration is best-effort */
+  }
 }
 
 async function unregisterPush(accountId: string) {
@@ -182,15 +186,21 @@ export function AccountManager({ children }: { children: ReactNode }) {
     let cancel = false;
     void (async () => {
       const index = await accountVault.snapshot();
-      if (!Object.keys(index.accounts).length) {
-        await accountVault.migrateIfEmpty(await extractCredentials());
-      }
       if (cancel) return;
       await publish();
+      if (!cancel) setReady(true);
+      if (!Object.keys(index.accounts).length) {
+        try {
+          await accountVault.migrateIfEmpty(await extractCredentials());
+          if (!cancel) await publish();
+        } catch {
+          /* getSession can fail offline; login still works */
+        }
+      }
+      if (cancel) return;
       const ids = (await accountVault.list()).map((account) => account.id);
       await Promise.all(ids.map((id) => registerPush(id)));
       await refreshAccounts();
-      if (!cancel) setReady(true);
     })();
     return () => {
       cancel = true;

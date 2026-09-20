@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
 import type { Channel, ChatMessage, Member, Workspace, WorkspaceSummary, WsClientEvent } from "@relay/shared";
@@ -97,9 +97,25 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [meQ.data, bootQ.data, workspaces, activeAccountId]);
 
   if (!value) {
+    const failed = meQ.isError || bootQ.isError;
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator color={colors.aubergine} />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12, backgroundColor: colors.canvas }}>
+        {failed ? (
+          <>
+            <Text style={{ color: colors.ink, fontSize: 16, fontWeight: "600" }}>Can't reach Relay</Text>
+            <Pressable
+              onPress={() => {
+                void meQ.refetch();
+                void bootQ.refetch();
+              }}
+              style={{ paddingHorizontal: 16, paddingVertical: 10 }}
+            >
+              <Text style={{ color: colors.accent, fontWeight: "700" }}>Retry</Text>
+            </Pressable>
+          </>
+        ) : (
+          <ActivityIndicator color={colors.aubergine} />
+        )}
       </View>
     );
   }

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
@@ -66,6 +66,9 @@ function Gate() {
     return <LoginScreen />;
   }
   if (meQ.isLoading) return <Splash />;
+  if (meQ.isError) {
+    return <Splash error="Can't reach Relay" onRetry={() => void meQ.refetch()} />;
+  }
   if (!meQ.data?.workspace) {
     return <CreateWorkspaceScreen onCreated={() => void queryClient.invalidateQueries({ queryKey: keys.me })} />;
   }
@@ -77,12 +80,23 @@ function Gate() {
   );
 }
 
-function Splash() {
+function Splash({ error, onRetry }: { error?: string; onRetry?: () => void }) {
   return (
     <View style={styles.splash}>
       <StatusBar style="light" />
       <Image source={require("./assets/icon.png")} style={styles.splashMark} />
-      <ActivityIndicator color={colors.headerInk} />
+      {error ? (
+        <>
+          <Text style={styles.splashError}>{error}</Text>
+          {onRetry ? (
+            <Pressable onPress={onRetry} style={styles.retry}>
+              <Text style={styles.retryLabel}>Retry</Text>
+            </Pressable>
+          ) : null}
+        </>
+      ) : (
+        <ActivityIndicator color={colors.headerInk} />
+      )}
     </View>
   );
 }
@@ -91,4 +105,14 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.canvas },
   splash: { flex: 1, alignItems: "center", justifyContent: "center", gap: 18, backgroundColor: colors.aubergine },
   splashMark: { width: 88, height: 88, borderRadius: 44 },
+  splashError: { color: colors.headerInk, fontSize: 16, fontWeight: "600" },
+  retry: {
+    marginTop: 4,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+  },
+  retryLabel: { color: colors.headerInk, fontSize: 15, fontWeight: "700" },
 });

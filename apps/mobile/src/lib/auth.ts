@@ -6,14 +6,16 @@ import { notifyAccountExpired } from "./session";
 import { getActiveWorkspaceId } from "./query";
 import { createMobileAccountVault, type StoredAccount } from "./account-vault";
 import { accountAuthHeaders } from "./account-headers";
+import { resolveApiOrigin } from "./api-origin";
+
+const FETCH_TIMEOUT_MS = 12_000;
 
 export function apiOrigin() {
-  const env = process.env.EXPO_PUBLIC_API_URL;
-  if (env) return env.replace(/\/$/, "");
-  const hostUri = Constants.expoConfig?.hostUri ?? "";
-  const host = hostUri.split(":")[0];
-  if (host && host !== "localhost" && host !== "127.0.0.1") return `http://${host}:3001`;
-  return "http://localhost:3001";
+  return resolveApiOrigin({
+    env: process.env.EXPO_PUBLIC_API_URL,
+    dev: typeof __DEV__ === "undefined" ? true : __DEV__,
+    hostUri: Constants.expoConfig?.hostUri ?? "",
+  });
 }
 
 export function wsOrigin() {
@@ -31,6 +33,7 @@ export const accountVault = createMobileAccountVault(kv);
 export function makeAuthClient(prefix: string) {
   return createAuthClient({
     baseURL: apiOrigin(),
+    fetchOptions: { timeout: FETCH_TIMEOUT_MS },
     plugins: [
       expoClient({
         scheme: "relay",
@@ -122,6 +125,24 @@ export async function getAccessToken(accountId = activeAccountId) {
   return tokenFrom(data) ?? sessionTokenFromCookie(await liveClient().getCookie());
 }
 
+function isAbortError(err: unknown) {
+  return err instanceof Error && (err.name === "AbortError" || err.message.includes("aborted"));
+}
+
+async function fetchWithTimeout(url: string, init?: RequestInit) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const parent = init?.signal;
+  const onAbort = () => controller.abort();
+  parent?.addEventListener("abort", onAbort);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+    parent?.removeEventListener("abort", onAbort);
+  }
+}
+
 export async function api<T>(path: string, init?: RequestInit, accountId?: string): Promise<T> {
   const id = accountId ?? activeAccountId;
   const creds = id ? await accountVault.credentials(id) : null;
@@ -135,7 +156,13 @@ export async function api<T>(path: string, init?: RequestInit, accountId?: strin
   if (!(init?.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const res = await fetch(`${apiOrigin()}${path}`, { ...init, headers, credentials: "omit" });
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(`${apiOrigin()}${path}`, { ...init, headers, credentials: "omit" });
+  } catch (err) {
+    if (isAbortError(err)) throw new Error("Can't reach Relay");
+    throw err;
+  }
   if (res.status === 401) {
     notifyAccountExpired(id);
     throw new Error("unauthorized");
@@ -180,7 +207,7 @@ export async function signOut() {
     if (creds?.token || creds?.cookie) {
       try {
         const headers = new Headers(accountAuthHeaders(creds));
-        await fetch(`${apiOrigin()}/api/auth/sign-out`, { method: "POST", headers, credentials: "omit" });
+        await fetchWithTimeout(`${apiOrigin()}/api/auth/sign-out`, { method: "POST", headers, credentials: "omit" });
       } catch {
         /* ignore */
       }
