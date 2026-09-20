@@ -19,7 +19,7 @@ export function InvitesScreen({ navigation }: Props) {
   const { workspace } = useWorkspace();
   const [email, setEmail] = useState("");
   const q = useQuery({
-    queryKey: keys.invites,
+    queryKey: keys.invites(workspace.id),
     queryFn: () => api<{ invites: Invite[] }>("/api/invites"),
   });
 

@@ -1,33 +1,36 @@
 import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
+import type { MeResponse } from "@relay/shared";
+import {
+  HttpError,
+  requireChannelMember,
+  requireMessageAccess,
+  requireWorkspaceMember,
+  resolveActiveWorkspaceId,
+  workspaceHeader,
+} from "./access.js";
 import { getAuthUser } from "./auth.js";
 import type { Auth } from "./better-auth.js";
-import {
-  channel,
-  channelMember,
-  huddle,
-  huddleParticipant,
-  message,
-  reaction,
-  user,
-  workspace,
-  workspaceMember,
-} from "./db/schema.js";
-import { mintLivekitToken } from "./livekit.js";
+import { message, reaction, user, workspace, workspaceMember } from "./db/schema.js";
+import { registerDeviceToken } from "./domain.js";
+import { handle, routeParam } from "./errors.js";
+import { joinHuddle, leaveHuddle } from "./huddle.js";
+import { type Hub } from "./hub.js";
+import { provisionAuthedUser } from "./provision.js";
 import {
   getMembers,
   hydrateHuddle,
   hydrateMessages,
+  listWorkspaceSummaries,
   loadChannelMessages,
   loadWorkspaceChannels,
   markRead,
   toPublicWorkspace,
   type AppDb,
 } from "./queries.js";
-import { provisionAuthedUser } from "./provision.js";
-import { Hub, endHuddleIfEmpty } from "./hub.js";
 import { createChatMessage } from "./send.js";
 import { objectKey, publicFileUrl, storage } from "./storage.js";
+import { attachment } from "./db/schema.js";
 import { registerExtraRoutes } from "./extra.js";
 import { desktopHandoffHtml } from "./desktop-handoff.js";
 
@@ -76,7 +79,10 @@ export function createApp(opts: { db: AppDb; hub: Hub; auth: Auth }) {
     if (originAllowed(origin)) {
       c.header("Access-Control-Allow-Origin", origin || apiOrigin);
       c.header("Access-Control-Allow-Credentials", "true");
-      c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, set-auth-token, expo-origin");
+      c.header(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization, set-auth-token, expo-origin, x-relay-workspace-id",
+      );
       c.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
       c.header("Access-Control-Expose-Headers", "set-auth-token");
     }
@@ -109,192 +115,200 @@ export function createApp(opts: { db: AppDb; hub: Hub; auth: Auth }) {
     return next();
   });
 
-  authed.get("/me", async (c) => {
-    const userId = c.get("userId");
-    const [mem] = await db
-      .select()
-      .from(workspaceMember)
-      .where(eq(workspaceMember.userId, userId))
-      .limit(1);
-    const [ws] = mem
-      ? await db.select().from(workspace).where(eq(workspace.id, mem.workspaceId))
-      : [null];
-    const [urow] = await db.select().from(user).where(eq(user.id, userId)).limit(1);
-    return c.json({
-      user: {
-        id: userId,
-        name: urow?.name ?? c.get("userName"),
-        email: urow?.email ?? "",
-        image: await publicFileUrl(urow?.image ?? c.get("userImage")),
-        displayName: mem?.displayName ?? urow?.name ?? c.get("userName"),
-        title: mem?.title ?? null,
-        statusText: mem?.statusText ?? null,
-        statusEmoji: mem?.statusEmoji ?? null,
-        presence: mem?.presence ?? "active",
-        role: mem?.role ?? "member",
-      },
-      workspace: ws ? await toPublicWorkspace(ws) : null,
-    });
-  });
-
-  authed.get("/workspaces/:id/bootstrap", async (c) => {
-    const userId = c.get("userId");
-    const wsId = c.req.param("id");
-    const [ws] = await db.select().from(workspace).where(eq(workspace.id, wsId));
-    if (!ws) return c.json({ error: "Not found" }, 404);
-    const [allowed] = await db
-      .select()
-      .from(workspaceMember)
-      .where(and(eq(workspaceMember.workspaceId, wsId), eq(workspaceMember.userId, userId)))
-      .limit(1);
-    if (!allowed) return c.json({ error: "Forbidden" }, 403);
-
-    const members = await getMembers(db, wsId);
-    const payload = await loadWorkspaceChannels(db, wsId, userId);
-    return c.json({ workspace: await toPublicWorkspace(ws), members, channels: payload });
-  });
-
-  authed.get("/channels/:id/messages", async (c) => {
-    const channelId = c.req.param("id");
-    const parentId = c.req.query("parentId") ?? null;
-    await markRead(db, channelId, c.get("userId"));
-    const messages = await loadChannelMessages(db, channelId, parentId);
-    const huddleState = await hydrateHuddle(db, channelId);
-    const [ch] = await db.select().from(channel).where(eq(channel.id, channelId));
-    return c.json({ channel: ch, messages, huddle: huddleState });
-  });
-
-  authed.post("/channels/:id/messages", async (c) => {
-    const channelId = c.req.param("id");
-    const body = await c.req.json<{
-      body?: string;
-      parentId?: string | null;
-      clientId?: string;
-      fileKey?: string;
-      fileName?: string;
-      fileContentType?: string;
-    }>();
-    const result = await createChatMessage(db, hub, {
-      channelId,
-      userId: c.get("userId"),
-      body: body.body ?? "",
-      parentId: body.parentId,
-      clientId: body.clientId,
-      fileKey: body.fileKey,
-      fileName: body.fileName,
-      fileContentType: body.fileContentType,
-    });
-    if (!result.ok) return c.json({ error: result.error }, result.status);
-    return c.json({ message: result.message });
-  });
-
-  authed.post("/messages/:id/reactions", async (c) => {
-    const messageId = c.req.param("id");
-    const { emoji } = await c.req.json<{ emoji: string }>();
-    const userId = c.get("userId");
-    const [existing] = await db
-      .select()
-      .from(reaction)
-      .where(and(eq(reaction.messageId, messageId), eq(reaction.userId, userId), eq(reaction.emoji, emoji)));
-    if (existing) {
-      await db
-        .delete(reaction)
-        .where(and(eq(reaction.messageId, messageId), eq(reaction.userId, userId), eq(reaction.emoji, emoji)));
-    } else {
-      await db.insert(reaction).values({ messageId, userId, emoji });
-    }
-    const [row] = await db.select().from(message).where(eq(message.id, messageId));
-    const [hydrated] = await hydrateMessages(db, [row]);
-    hub.broadcastToChannel(row.channelId, { type: "message.updated", message: hydrated });
-    return c.json({ message: hydrated });
-  });
-
-  authed.post("/channels/:id/huddle/join", async (c) => {
-    const channelId = c.req.param("id");
-    const userId = c.get("userId");
-    let [h] = await db
-      .select()
-      .from(huddle)
-      .where(and(eq(huddle.channelId, channelId), eq(huddle.active, true)))
-      .limit(1);
-    if (!h) {
-      h = {
-        id: crypto.randomUUID(),
-        channelId,
-        startedBy: userId,
-        livekitRoom: `huddle_${channelId}`,
-        active: true,
-        startedAt: new Date(),
-        endedAt: null,
+  authed.get(
+    "/me",
+    handle(async (c) => {
+      const userId = c.get("userId");
+      const requested = workspaceHeader(c.req.raw.headers) ?? c.req.query("workspaceId") ?? null;
+      const workspaces = await listWorkspaceSummaries(db, userId);
+      const activeWorkspaceId = await resolveActiveWorkspaceId(db, userId, requested);
+      const [urow] = await db.select().from(user).where(eq(user.id, userId)).limit(1);
+      const mem = activeWorkspaceId
+        ? (
+            await db
+              .select()
+              .from(workspaceMember)
+              .where(and(eq(workspaceMember.workspaceId, activeWorkspaceId), eq(workspaceMember.userId, userId)))
+              .limit(1)
+          )[0]
+        : null;
+      const ws = activeWorkspaceId
+        ? (await db.select().from(workspace).where(eq(workspace.id, activeWorkspaceId)))[0]
+        : null;
+      const members = activeWorkspaceId ? await getMembers(db, activeWorkspaceId) : [];
+      const membership = members.find((m) => m.userId === userId) ?? null;
+      const payload: MeResponse = {
+        user: {
+          id: userId,
+          name: urow?.name ?? c.get("userName"),
+          email: urow?.email ?? "",
+          image: await publicFileUrl(urow?.image ?? c.get("userImage")),
+          displayName: mem?.displayName ?? urow?.name ?? c.get("userName"),
+          title: mem?.title ?? null,
+          statusText: mem?.statusText ?? null,
+          statusEmoji: mem?.statusEmoji ?? null,
+          presence: mem?.presence ?? "active",
+          role: mem?.role ?? "member",
+        },
+        workspaces,
+        activeWorkspaceId,
+        membership,
+        workspace: ws ? await toPublicWorkspace(ws) : null,
       };
-      await db.insert(huddle).values(h);
-    }
-    await db
-      .insert(huddleParticipant)
-      .values({ huddleId: h.id, userId })
-      .onConflictDoNothing();
-    const state = await hydrateHuddle(db, channelId);
-    hub.broadcastToChannel(channelId, { type: "huddle.updated", channelId, huddle: state });
-    hub.broadcastAll({ type: "huddle.updated", channelId, huddle: state });
-    const token = await mintLivekitToken({
-      room: h.livekitRoom,
-      identity: userId,
-      name: c.get("userName"),
-    });
-    return c.json({ huddle: state, livekit: token });
-  });
+      return c.json(payload);
+    }),
+  );
 
-  authed.post("/channels/:id/huddle/leave", async (c) => {
-    const channelId = c.req.param("id");
-    const userId = c.get("userId");
-    const [h] = await db
-      .select()
-      .from(huddle)
-      .where(and(eq(huddle.channelId, channelId), eq(huddle.active, true)))
-      .limit(1);
-    if (h) {
-      await db
-        .delete(huddleParticipant)
-        .where(and(eq(huddleParticipant.huddleId, h.id), eq(huddleParticipant.userId, userId)));
-      await endHuddleIfEmpty(db, h.id);
-    }
-    const state = await hydrateHuddle(db, channelId);
-    hub.broadcastAll({ type: "huddle.updated", channelId, huddle: state });
-    return c.json({ huddle: state });
-  });
+  authed.get(
+    "/workspaces/:id/bootstrap",
+    handle(async (c) => {
+      const userId = c.get("userId");
+      const wsId = routeParam(c, "id");
+      await requireWorkspaceMember(db, wsId, userId);
+      const [ws] = await db.select().from(workspace).where(eq(workspace.id, wsId));
+      if (!ws || ws.deletedAt) throw new HttpError(404, "Not found");
+      const members = await getMembers(db, wsId);
+      const payload = await loadWorkspaceChannels(db, wsId, userId);
+      return c.json({ workspace: await toPublicWorkspace(ws), members, channels: payload });
+    }),
+  );
 
-  authed.post("/files", async (c) => {
-    const userId = c.get("userId");
-    const form = await c.req.formData();
-    const file = form.get("file");
-    if (!(file instanceof File)) return c.json({ error: "Missing file" }, 400);
-    const key = objectKey(userId, file.name);
-    const files = storage();
-    const buf = Buffer.from(await file.arrayBuffer());
-    await files.upload(key, buf, { contentType: file.type || "application/octet-stream" });
-    const url = await files.url(key, { expiresIn: 3600 });
-    return c.json({
-      key,
-      name: file.name,
-      contentType: file.type,
-      url,
-    });
-  });
+  authed.get(
+    "/channels/:id/messages",
+    handle(async (c) => {
+      const channelId = routeParam(c, "id");
+      const parentId = c.req.query("parentId") ?? null;
+      const cursor = c.req.query("cursor") ?? null;
+      const limit = Number(c.req.query("limit") ?? 80);
+      await requireChannelMember(db, channelId, c.get("userId"));
+      await markRead(db, channelId, c.get("userId"));
+      const page = await loadChannelMessages(db, channelId, { parentId, cursor, limit });
+      const huddleState = await hydrateHuddle(db, channelId);
+      return c.json({ ...page, huddle: huddleState });
+    }),
+  );
 
-  authed.post("/device-tokens", async (c) => {
-    const { token, platform } = await c.req.json<{ token: string; platform: string }>();
-    const { deviceToken } = await import("./db/schema.js");
-    await db
-      .insert(deviceToken)
-      .values({
-        id: crypto.randomUUID(),
+  authed.post(
+    "/channels/:id/messages",
+    handle(async (c) => {
+      const channelId = routeParam(c, "id");
+      const body = await c.req.json<{
+        body?: string;
+        parentId?: string | null;
+        clientId?: string;
+        fileKey?: string;
+        fileName?: string;
+        fileContentType?: string;
+      }>();
+      const result = await createChatMessage(db, hub, {
+        channelId,
         userId: c.get("userId"),
-        token,
-        platform,
-      })
-      .onConflictDoNothing();
-    return c.json({ ok: true });
-  });
+        body: body.body ?? "",
+        parentId: body.parentId,
+        clientId: body.clientId,
+        fileKey: body.fileKey,
+        fileName: body.fileName,
+        fileContentType: body.fileContentType,
+      });
+      if (!result.ok) return c.json({ error: result.error }, result.status);
+      return c.json({ message: result.message });
+    }),
+  );
+
+  authed.post(
+    "/messages/:id/reactions",
+    handle(async (c) => {
+      const messageId = routeParam(c, "id");
+      const { emoji } = await c.req.json<{ emoji: string }>();
+      const userId = c.get("userId");
+      const access = await requireMessageAccess(db, messageId, userId);
+      const [existing] = await db
+        .select()
+        .from(reaction)
+        .where(and(eq(reaction.messageId, messageId), eq(reaction.userId, userId), eq(reaction.emoji, emoji)));
+      if (existing) {
+        await db
+          .delete(reaction)
+          .where(and(eq(reaction.messageId, messageId), eq(reaction.userId, userId), eq(reaction.emoji, emoji)));
+      } else {
+        await db.insert(reaction).values({ messageId, userId, emoji });
+      }
+      const [row] = await db.select().from(message).where(eq(message.id, messageId));
+      const [hydrated] = await hydrateMessages(db, [row]);
+      hub.broadcastToChannel(access.channel.id, { type: "message.updated", message: hydrated });
+      return c.json({ message: hydrated });
+    }),
+  );
+
+  authed.post(
+    "/channels/:id/huddle/join",
+    handle(async (c) => {
+      const result = await joinHuddle(db, hub, {
+        channelId: routeParam(c, "id"),
+        userId: c.get("userId"),
+        userName: c.get("userName"),
+      });
+      return c.json(result);
+    }),
+  );
+
+  authed.post(
+    "/channels/:id/huddle/leave",
+    handle(async (c) => {
+      const result = await leaveHuddle(db, hub, {
+        channelId: routeParam(c, "id"),
+        userId: c.get("userId"),
+      });
+      return c.json(result);
+    }),
+  );
+
+  authed.post(
+    "/files",
+    handle(async (c) => {
+      const userId = c.get("userId");
+      const form = await c.req.formData();
+      const file = form.get("file");
+      if (!(file instanceof File)) throw new HttpError(400, "Missing file");
+      const requested =
+        workspaceHeader(c.req.raw.headers) ??
+        (typeof form.get("workspaceId") === "string" ? String(form.get("workspaceId")) : null) ??
+        c.req.query("workspaceId") ??
+        null;
+      const workspaceId = await resolveActiveWorkspaceId(db, userId, requested);
+      if (!workspaceId) throw new HttpError(404, "No workspace");
+      await requireWorkspaceMember(db, workspaceId, userId);
+      const key = objectKey(userId, file.name);
+      const files = storage();
+      const buf = Buffer.from(await file.arrayBuffer());
+      await files.upload(key, buf, { contentType: file.type || "application/octet-stream" });
+      await db.insert(attachment).values({
+        workspaceId,
+        uploadedBy: userId,
+        storageKey: key,
+        fileName: file.name,
+        contentType: file.type || "application/octet-stream",
+        byteSize: buf.byteLength,
+        purpose: "message",
+      });
+      const url = await files.url(key, { expiresIn: 3600 });
+      return c.json({
+        key,
+        name: file.name,
+        contentType: file.type,
+        url,
+      });
+    }),
+  );
+
+  authed.post(
+    "/device-tokens",
+    handle(async (c) => {
+      const { token, platform } = await c.req.json<{ token: string; platform: string }>();
+      await registerDeviceToken(db, { userId: c.get("userId"), token, platform });
+      return c.json({ ok: true });
+    }),
+  );
 
   registerExtraRoutes(authed, db, hub);
 

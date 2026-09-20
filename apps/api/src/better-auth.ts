@@ -5,7 +5,7 @@ import { expo } from "@better-auth/expo";
 import { bearer } from "better-auth/plugins";
 import { electron } from "@better-auth/electron";
 import * as schema from "./db/schema.js";
-import type { AppDb } from "./queries.js";
+import type { AppDb } from "./db/index.js";
 
 export type Auth = ReturnType<typeof createAuth>;
 
@@ -53,6 +53,8 @@ export function createAuth(db: AppDb) {
       fallback: apiOrigin,
     },
     secret,
+    // @ts-expect-error Better Auth 1.7 identityStrategy is a runtime option missing from published types
+    account: { identityStrategy: "provider-id" },
     database: drizzleAdapter(db, {
       provider: "pg",
       schema: {

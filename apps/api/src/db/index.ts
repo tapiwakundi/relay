@@ -8,6 +8,8 @@ function postgresUrl(url: string) {
   return parsed.toString();
 }
 
+export type AppDb = ReturnType<typeof drizzlePg<typeof schema>>;
+
 export async function createDb() {
   const url = process.env.DATABASE_URL?.trim();
 
@@ -17,5 +19,5 @@ export async function createDb() {
 
   const client = postgres(postgresUrl(url), { prepare: false, max: 10 });
   const db = drizzlePg(client, { schema });
-  return { db, dialect: "neon" as const };
+  return { db, dialect: "neon" as const, client };
 }

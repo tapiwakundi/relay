@@ -143,10 +143,12 @@ function MessageItem({
               </button>
             </div>
           </form>
+        ) : m.deleted ? (
+          <div className="body deleted">This message was deleted</div>
         ) : (
           <div className="body" dangerouslySetInnerHTML={{ __html: renderBody(m.body) }} />
         )}
-        {m.fileUrl || m.fileName ? (
+        {!m.deleted && (m.fileUrl || m.fileName) ? (
           <a className="file-card" href={m.fileUrl ?? "#"} target="_blank" rel="noreferrer">
             <span className="file-icon">📄</span>
             <span>

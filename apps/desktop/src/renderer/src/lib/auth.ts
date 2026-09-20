@@ -1,4 +1,5 @@
 import type { ApiRequest } from "../../../shared/ipc";
+import { getActiveWorkspaceId } from "./query";
 
 async function requestBody(init?: RequestInit): Promise<Pick<ApiRequest, "body" | "form">> {
   const body = init?.body;
@@ -25,9 +26,13 @@ async function requestBody(init?: RequestInit): Promise<Pick<ApiRequest, "body" 
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const payload = await requestBody(init);
+  const headers: Record<string, string> = {};
+  const workspaceId = getActiveWorkspaceId();
+  if (workspaceId) headers["x-relay-workspace-id"] = workspaceId;
   const response = await window.relayDesktop.api({
     path,
     method: init?.method,
+    headers,
     ...payload,
   });
   if (response.status === 401) throw new Error("unauthorized");

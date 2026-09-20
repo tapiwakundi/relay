@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { SearchHit } from "@relay/shared";
 import { api } from "../lib/auth";
 import { keys } from "../lib/query";
+import { useWorkspace } from "../lib/workspace";
 import { Glass } from "../ui/Glass";
 import { HeaderBtn, ScreenHeader } from "../ui/Header";
 import { colors, radii, space } from "../ui/theme";
@@ -15,9 +16,10 @@ type Props = NativeStackScreenProps<RootStackParamList, "Search">;
 
 export function SearchScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const { workspace } = useWorkspace();
   const [q, setQ] = useState("");
   const results = useQuery({
-    queryKey: keys.search(q),
+    queryKey: keys.search(workspace.id, q),
     enabled: q.trim().length > 1,
     queryFn: () => api<{ hits: SearchHit[] }>(`/api/search?q=${encodeURIComponent(q.trim())}`),
   });

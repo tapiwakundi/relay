@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
-import type { Channel, ChatMessage, Workspace, Member, WsServerEvent } from "@relay/shared";
+import type { Channel, ChatMessage, Member, Workspace, WorkspaceSummary, WsServerEvent } from "@relay/shared";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -7,15 +7,25 @@ export const queryClient = new QueryClient({
   },
 });
 
+let activeWorkspaceId: string | null = null;
+
+export function setActiveWorkspaceId(id: string | null) {
+  activeWorkspaceId = id;
+}
+
+export function getActiveWorkspaceId() {
+  return activeWorkspaceId;
+}
+
 export const keys = {
   me: ["me"] as const,
   bootstrap: (wsId: string) => ["bootstrap", wsId] as const,
   messages: (channelId: string, parentId: string | null) => ["messages", channelId, parentId] as const,
-  activity: ["activity"] as const,
-  files: ["files"] as const,
-  later: ["later"] as const,
-  threads: ["threads"] as const,
-  invites: ["invites"] as const,
+  activity: (wsId: string) => ["activity", wsId] as const,
+  files: (wsId: string) => ["files", wsId] as const,
+  later: (wsId: string) => ["later", wsId] as const,
+  threads: (wsId: string) => ["threads", wsId] as const,
+  invites: (wsId: string) => ["invites", wsId] as const,
 };
 
 export type Me = {
@@ -31,7 +41,21 @@ export type Me = {
   role: string;
 };
 
+export type MeResponse = {
+  user: Me;
+  workspaces: WorkspaceSummary[];
+  activeWorkspaceId: string | null;
+  membership: Member | null;
+  workspace: Workspace | null;
+};
+
 export type Bootstrap = { workspace: Workspace; members: Member[]; channels: Channel[] };
+
+function sameWorkspace(boot: Bootstrap | undefined, workspaceId?: string) {
+  if (!boot) return false;
+  if (!workspaceId) return true;
+  return boot.workspace.id === workspaceId;
+}
 
 export function applyWsEvent(ev: WsServerEvent, meId: string) {
   if (ev.type === "message.created") {
@@ -95,24 +119,31 @@ export function applyWsEvent(ev: WsServerEvent, meId: string) {
   if (ev.type === "message.deleted") {
     queryClient.setQueryData<{ messages: ChatMessage[] }>(
       keys.messages(ev.channelId, ev.parentId ?? null),
-      (old) => (old ? { messages: old.messages.filter((m) => m.id !== ev.messageId) } : old),
+      (old) =>
+        old
+          ? {
+              messages: old.messages.map((m) =>
+                m.id === ev.messageId ? { ...m, deleted: true, body: "" } : m,
+              ),
+            }
+          : old,
     );
   }
   if (ev.type === "presence") {
     queryClient.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
-      if (!boot) return boot;
+      if (!sameWorkspace(boot, ev.workspaceId)) return boot;
       return {
-        ...boot,
-        members: boot.members.map((m) => (m.userId === ev.userId ? { ...m, presence: ev.presence } : m)),
+        ...boot!,
+        members: boot!.members.map((m) => (m.userId === ev.userId ? { ...m, presence: ev.presence } : m)),
       };
     });
   }
   if (ev.type === "huddle.updated") {
     queryClient.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
-      if (!boot) return boot;
+      if (!sameWorkspace(boot, ev.workspaceId)) return boot;
       return {
-        ...boot,
-        channels: boot.channels.map((c) => (c.id === ev.channelId ? { ...c, huddle: ev.huddle } : c)),
+        ...boot!,
+        channels: boot!.channels.map((c) => (c.id === ev.channelId ? { ...c, huddle: ev.huddle } : c)),
       };
     });
   }
@@ -129,29 +160,35 @@ export function applyWsEvent(ev: WsServerEvent, meId: string) {
   }
   if (ev.type === "channel.created") {
     queryClient.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
-      if (!boot) return boot;
-      if (boot.channels.some((c) => c.id === ev.channel.id)) return boot;
-      return { ...boot, channels: [...boot.channels, ev.channel] };
+      if (!sameWorkspace(boot, ev.workspaceId ?? ev.channel.workspaceId)) return boot;
+      if (boot!.channels.some((c) => c.id === ev.channel.id)) return boot;
+      return { ...boot!, channels: [...boot!.channels, ev.channel] };
     });
   }
   if (ev.type === "workspace.updated") {
-    queryClient.setQueryData<{ user: Me; workspace: Workspace | null }>(keys.me, (old) =>
-      old ? { ...old, workspace: ev.workspace } : old,
-    );
+    queryClient.setQueryData<MeResponse>(keys.me, (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        workspace: old.workspace?.id === ev.workspace.id ? ev.workspace : old.workspace,
+        workspaces: (old.workspaces ?? []).map((ws) => (ws.id === ev.workspace.id ? { ...ws, ...ev.workspace } : ws)),
+      };
+    });
     queryClient.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) =>
-      boot ? { ...boot, workspace: ev.workspace } : boot,
+      boot && boot.workspace.id === ev.workspace.id ? { ...boot, workspace: ev.workspace } : boot,
     );
   }
   if (ev.type === "member.updated") {
     queryClient.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
-      if (!boot) return boot;
+      if (!sameWorkspace(boot, ev.workspaceId)) return boot;
       return {
-        ...boot,
-        members: boot.members.map((m) => (m.userId === ev.member.userId ? ev.member : m)),
+        ...boot!,
+        members: boot!.members.map((m) => (m.userId === ev.member.userId ? ev.member : m)),
       };
     });
-    queryClient.setQueryData<{ user: Me; workspace: Workspace | null }>(keys.me, (old) => {
+    queryClient.setQueryData<MeResponse>(keys.me, (old) => {
       if (!old?.user || old.user.id !== ev.member.userId) return old;
+      if (ev.workspaceId && old.activeWorkspaceId && ev.workspaceId !== old.activeWorkspaceId) return old;
       return {
         ...old,
         user: {
@@ -169,9 +206,9 @@ export function applyWsEvent(ev: WsServerEvent, meId: string) {
   }
   if (ev.type === "member.joined") {
     queryClient.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
-      if (!boot) return boot;
-      if (boot.members.some((m) => m.userId === ev.member.userId)) return boot;
-      return { ...boot, members: [...boot.members, ev.member] };
+      if (!sameWorkspace(boot, ev.workspaceId)) return boot;
+      if (boot!.members.some((m) => m.userId === ev.member.userId)) return boot;
+      return { ...boot!, members: [...boot!.members, ev.member] };
     });
   }
 }

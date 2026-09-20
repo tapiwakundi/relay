@@ -41,6 +41,7 @@ export type ApiRequest = {
   method?: string;
   body?: string;
   form?: FormPart[];
+  headers?: Record<string, string>;
 };
 
 export type ApiResponse = {

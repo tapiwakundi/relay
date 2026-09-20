@@ -14,6 +14,11 @@ export async function proxyApi(request: ApiRequest): Promise<ApiResponse> {
   const headers = new Headers();
   const cookie = authClient.getCookie();
   if (cookie) headers.set("cookie", cookie);
+  if (request.headers) {
+    for (const [key, value] of Object.entries(request.headers)) {
+      if (value) headers.set(key, value);
+    }
+  }
   let body: BodyInit | undefined;
   if (request.form) {
     const form = new FormData();

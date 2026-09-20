@@ -7,6 +7,7 @@ import type { ActivityItem } from "@relay/shared";
 import { api } from "../lib/auth";
 import { formatTime } from "../lib/format";
 import { keys } from "../lib/query";
+import { useWorkspace } from "../lib/workspace";
 import { Avatar } from "../ui/Avatar";
 import { Glass } from "../ui/Glass";
 import { ScreenHeader } from "../ui/Header";
@@ -17,8 +18,9 @@ import type { RootStackParamList } from "../nav/types";
 export function ActivityScreen() {
   const insets = useSafeAreaInsets();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { workspace } = useWorkspace();
   const q = useQuery({
-    queryKey: keys.activity,
+    queryKey: keys.activity(workspace.id),
     queryFn: () => api<{ items: ActivityItem[] }>("/api/activity"),
   });
   const items = q.data?.items ?? [];

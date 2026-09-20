@@ -24,6 +24,12 @@ export type Workspace = {
   plan: string;
 };
 
+export type WorkspaceSummary = Workspace & {
+  role: Member["role"];
+  unreadTotal?: number;
+  mentionTotal?: number;
+};
+
 export type Channel = {
   id: string;
   workspaceId: string;
@@ -61,6 +67,7 @@ export type ChatMessage = {
   createdAt: string;
   updatedAt: string | null;
   edited: boolean;
+  deleted?: boolean;
   replyCount: number;
   latestReplyAt: string | null;
   replyUserIds: string[];
@@ -69,9 +76,17 @@ export type ChatMessage = {
   fileName?: string | null;
   fileContentType?: string | null;
   fileUrl?: string | null;
+  attachmentId?: string | null;
   pending?: boolean;
   clientId?: string | null;
   failed?: boolean;
+};
+
+export type MessagePage = {
+  messages: ChatMessage[];
+  huddle?: Huddle | null;
+  nextCursor: string | null;
+  hasMore: boolean;
 };
 
 export type HuddleParticipant = {
@@ -94,6 +109,7 @@ export type Huddle = {
 
 export type WsClientEvent =
   | { type: "hello"; token?: string }
+  | { type: "workspace.select"; workspaceId: string }
   | { type: "subscribe"; channelId: string }
   | { type: "unsubscribe"; channelId: string }
   | { type: "message.send"; channelId: string; body: string; parentId?: string | null; clientId?: string; fileKey?: string; fileName?: string; fileContentType?: string }
@@ -109,7 +125,7 @@ export type Invite = {
   email: string;
   invitedBy: string;
   token: string;
-  status: "pending" | "accepted" | "expired";
+  status: "pending" | "accepted" | "expired" | "revoked";
   url: string;
   createdAt: string;
 };
@@ -146,19 +162,40 @@ export type SearchHit = {
   userId?: string;
 };
 
+export type MeUser = {
+  id: string;
+  name: string;
+  email: string;
+  image: string | null;
+  displayName: string;
+  title: string | null;
+  statusText: string | null;
+  statusEmoji: string | null;
+  presence: Presence;
+  role: Member["role"];
+};
+
+export type MeResponse = {
+  user: MeUser;
+  workspaces: WorkspaceSummary[];
+  activeWorkspaceId: string | null;
+  membership: Member | null;
+  workspace: Workspace | null;
+};
+
 export type WsServerEvent =
-  | { type: "ready"; userId: string }
+  | { type: "ready"; userId: string; activeWorkspaceId: string | null }
   | { type: "error"; message: string }
   | { type: "message.created"; message: ChatMessage }
   | { type: "message.updated"; message: ChatMessage }
   | { type: "message.deleted"; messageId: string; channelId: string; parentId?: string | null }
   | { type: "typing"; channelId: string; userId: string; userName: string; parentId?: string | null }
-  | { type: "presence"; userId: string; presence: Presence }
-  | { type: "huddle.updated"; huddle: Huddle | null; channelId: string }
+  | { type: "presence"; workspaceId: string; userId: string; presence: Presence }
+  | { type: "huddle.updated"; huddle: Huddle | null; channelId: string; workspaceId?: string }
   | { type: "unread"; channelId: string; unreadCount: number; mentionCount: number }
-  | { type: "channel.created"; channel: Channel }
+  | { type: "channel.created"; channel: Channel; workspaceId?: string }
   | { type: "workspace.updated"; workspace: Workspace }
-  | { type: "member.updated"; member: Member }
-  | { type: "member.joined"; member: Member };
+  | { type: "member.updated"; workspaceId: string; member: Member }
+  | { type: "member.joined"; workspaceId: string; member: Member };
 
 export const EMOJI_QUICK = ["👍", "❤️", "😂", "🎉", "👀", "🔥", "✅", "🙌"] as const;

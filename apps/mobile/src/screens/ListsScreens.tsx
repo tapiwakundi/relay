@@ -7,6 +7,7 @@ import type { ChatMessage, FileItem } from "@relay/shared";
 import { api } from "../lib/auth";
 import { formatTime } from "../lib/format";
 import { keys } from "../lib/query";
+import { useWorkspace } from "../lib/workspace";
 import { Avatar } from "../ui/Avatar";
 import { Glass } from "../ui/Glass";
 import { HeaderBtn, ScreenHeader } from "../ui/Header";
@@ -16,8 +17,9 @@ import type { RootStackParamList } from "../nav/types";
 
 export function LaterScreen({ navigation }: NativeStackScreenProps<RootStackParamList, "Later">) {
   const insets = useSafeAreaInsets();
+  const { workspace } = useWorkspace();
   const q = useQuery({
-    queryKey: keys.later,
+    queryKey: keys.later(workspace.id),
     queryFn: () => api<{ items: ChatMessage[] }>("/api/later"),
   });
   return (
@@ -46,8 +48,9 @@ export function LaterScreen({ navigation }: NativeStackScreenProps<RootStackPara
 
 export function FilesScreen({ navigation }: NativeStackScreenProps<RootStackParamList, "Files">) {
   const insets = useSafeAreaInsets();
+  const { workspace } = useWorkspace();
   const q = useQuery({
-    queryKey: keys.files,
+    queryKey: keys.files(workspace.id),
     queryFn: () => api<{ items: FileItem[] }>("/api/files"),
   });
   return (
@@ -68,8 +71,9 @@ export function FilesScreen({ navigation }: NativeStackScreenProps<RootStackPara
 
 export function ThreadsScreen({ navigation }: NativeStackScreenProps<RootStackParamList, "Threads">) {
   const insets = useSafeAreaInsets();
+  const { workspace } = useWorkspace();
   const q = useQuery({
-    queryKey: keys.threads,
+    queryKey: keys.threads(workspace.id),
     queryFn: () => api<{ items: ChatMessage[] }>("/api/threads"),
   });
   return (

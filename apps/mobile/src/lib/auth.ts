@@ -3,6 +3,7 @@ import { expoClient } from "@better-auth/expo/client";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import { notifySignedOut } from "./session";
+import { getActiveWorkspaceId } from "./query";
 
 export function apiOrigin() {
   const env = process.env.EXPO_PUBLIC_API_URL;
@@ -64,6 +65,8 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getAccessToken();
   const cookie = await authClient.getCookie();
   const headers = new Headers(init?.headers);
+  const workspaceId = getActiveWorkspaceId();
+  if (workspaceId) headers.set("x-relay-workspace-id", workspaceId);
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (cookie) headers.set("Cookie", cookie);
   if (!(init?.body instanceof FormData) && !headers.has("Content-Type")) {

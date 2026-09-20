@@ -2,18 +2,14 @@ import type { IncomingMessage } from "node:http";
 import type { WebSocket, WebSocketServer } from "ws";
 import { and, eq } from "drizzle-orm";
 import type { WsClientEvent } from "@relay/shared";
+import { requireChannelMember, requireMessageAccess, resolveActiveWorkspaceId } from "./access.js";
 import { getAuthUser } from "./auth.js";
 import type { Auth } from "./better-auth.js";
-import {
-  huddle,
-  huddleParticipant,
-  message,
-  reaction,
-  workspaceMember,
-} from "./db/schema.js";
-import { endHuddleIfEmpty, type Hub } from "./hub.js";
-import { mintLivekitToken } from "./livekit.js";
-import { hydrateHuddle, hydrateMessages, markRead, type AppDb } from "./queries.js";
+import { message, reaction, workspaceMember } from "./db/schema.js";
+import { selectWorkspace } from "./domain.js";
+import { joinHuddle, leaveHuddle } from "./huddle.js";
+import { type Hub } from "./hub.js";
+import { hydrateMessages, markRead, type AppDb } from "./queries.js";
 import { provisionAuthedUser } from "./provision.js";
 import { createChatMessage } from "./send.js";
 
@@ -46,14 +42,22 @@ export function attachSockets(opts: {
     await provisionAuthedUser(db, user);
 
     const userId = user.id;
-    const client = hub.add(ws, userId);
-    hub.send(ws, { type: "ready", userId });
+    const activeWorkspaceId = await resolveActiveWorkspaceId(db, userId, null);
+    const client = hub.add(ws, userId, activeWorkspaceId);
+    hub.send(ws, { type: "ready", userId, activeWorkspaceId });
 
-    await db
-      .update(workspaceMember)
-      .set({ presence: "active" })
-      .where(eq(workspaceMember.userId, userId));
-    hub.broadcastAll({ type: "presence", userId, presence: "active" });
+    if (activeWorkspaceId) {
+      await db
+        .update(workspaceMember)
+        .set({ presence: "active", updatedAt: new Date() })
+        .where(and(eq(workspaceMember.workspaceId, activeWorkspaceId), eq(workspaceMember.userId, userId)));
+      hub.broadcastToWorkspace(activeWorkspaceId, {
+        type: "presence",
+        workspaceId: activeWorkspaceId,
+        userId,
+        presence: "active",
+      });
+    }
 
     ws.on("message", async (raw) => {
       let event: WsClientEvent;
@@ -63,7 +67,14 @@ export function attachSockets(opts: {
         return;
       }
       try {
+        if (event.type === "workspace.select") {
+          await selectWorkspace(db, userId, event.workspaceId);
+          hub.setWorkspace(client, event.workspaceId);
+          hub.send(ws, { type: "ready", userId, activeWorkspaceId: event.workspaceId });
+          return;
+        }
         if (event.type === "subscribe") {
+          await requireChannelMember(db, event.channelId, userId);
           hub.subscribe(client, event.channelId);
           await markRead(db, event.channelId, userId);
           return;
@@ -73,6 +84,7 @@ export function attachSockets(opts: {
           return;
         }
         if (event.type === "typing") {
+          await requireChannelMember(db, event.channelId, userId);
           hub.broadcastToChannel(
             event.channelId,
             {
@@ -87,14 +99,22 @@ export function attachSockets(opts: {
           return;
         }
         if (event.type === "presence.set") {
+          const workspaceId = client.workspaceId ?? (await resolveActiveWorkspaceId(db, userId, null));
+          if (!workspaceId) return;
           await db
             .update(workspaceMember)
-            .set({ presence: event.presence })
-            .where(eq(workspaceMember.userId, userId));
-          hub.broadcastAll({ type: "presence", userId, presence: event.presence });
+            .set({ presence: event.presence, updatedAt: new Date() })
+            .where(and(eq(workspaceMember.workspaceId, workspaceId), eq(workspaceMember.userId, userId)));
+          hub.broadcastToWorkspace(workspaceId, {
+            type: "presence",
+            workspaceId,
+            userId,
+            presence: event.presence,
+          });
           return;
         }
         if (event.type === "message.send") {
+          await requireChannelMember(db, event.channelId, userId);
           hub.subscribe(client, event.channelId);
           const result = await createChatMessage(db, hub, {
             channelId: event.channelId,
@@ -115,87 +135,49 @@ export function attachSockets(opts: {
         }
         if (event.type === "reaction.toggle") {
           const { messageId, emoji } = event;
+          const access = await requireMessageAccess(db, messageId, userId);
           const [existing] = await db
             .select()
             .from(reaction)
-            .where(
-              and(eq(reaction.messageId, messageId), eq(reaction.userId, userId), eq(reaction.emoji, emoji)),
-            );
+            .where(and(eq(reaction.messageId, messageId), eq(reaction.userId, userId), eq(reaction.emoji, emoji)));
           if (existing) {
             await db
               .delete(reaction)
-              .where(
-                and(eq(reaction.messageId, messageId), eq(reaction.userId, userId), eq(reaction.emoji, emoji)),
-              );
+              .where(and(eq(reaction.messageId, messageId), eq(reaction.userId, userId), eq(reaction.emoji, emoji)));
           } else {
             await db.insert(reaction).values({ messageId, userId, emoji });
           }
           const [row] = await db.select().from(message).where(eq(message.id, messageId));
           const [hydrated] = await hydrateMessages(db, [row]);
-          hub.broadcastToChannel(row.channelId, { type: "message.updated", message: hydrated });
+          hub.broadcastToChannel(access.channel.id, { type: "message.updated", message: hydrated });
           return;
         }
         if (event.type === "huddle.join") {
-          const channelId = event.channelId;
-          let [h] = await db
-            .select()
-            .from(huddle)
-            .where(and(eq(huddle.channelId, channelId), eq(huddle.active, true)))
-            .limit(1);
-          if (!h) {
-            h = {
-              id: crypto.randomUUID(),
-              channelId,
-              startedBy: userId,
-              livekitRoom: `huddle_${channelId}`,
-              active: true,
-              startedAt: new Date(),
-              endedAt: null,
-            };
-            await db.insert(huddle).values(h);
-          }
-          await db.insert(huddleParticipant).values({ huddleId: h.id, userId }).onConflictDoNothing();
-          const state = await hydrateHuddle(db, channelId);
-          hub.broadcastAll({ type: "huddle.updated", channelId, huddle: state });
-          const livekit = await mintLivekitToken({
-            room: h.livekitRoom,
-            identity: userId,
-            name: user.name,
-          });
-          hub.send(ws, { type: "huddle.updated", channelId, huddle: state });
-          void livekit;
+          await joinHuddle(db, hub, { channelId: event.channelId, userId, userName: user.name });
           return;
         }
         if (event.type === "huddle.leave") {
-          const channelId = event.channelId;
-          const [h] = await db
-            .select()
-            .from(huddle)
-            .where(and(eq(huddle.channelId, channelId), eq(huddle.active, true)))
-            .limit(1);
-          if (h) {
-            await db
-              .delete(huddleParticipant)
-              .where(and(eq(huddleParticipant.huddleId, h.id), eq(huddleParticipant.userId, userId)));
-            await endHuddleIfEmpty(db, h.id);
-          }
-          const state = await hydrateHuddle(db, channelId);
-          hub.broadcastAll({ type: "huddle.updated", channelId, huddle: state });
+          await leaveHuddle(db, hub, { channelId: event.channelId, userId });
         }
       } catch (err) {
         console.error(err);
-        hub.send(ws, { type: "error", message: "server error" });
+        hub.send(ws, { type: "error", message: err instanceof Error ? err.message : "server error" });
       }
     });
 
     ws.on("close", async () => {
       const still = hub.isOnline(userId);
-      if (!still) {
+      if (!still && client.workspaceId) {
         await db
           .update(workspaceMember)
-          .set({ presence: "away" })
-          .where(eq(workspaceMember.userId, userId));
-        hub.broadcastAll({ type: "presence", userId, presence: "away" });
+          .set({ presence: "away", updatedAt: new Date() })
+          .where(and(eq(workspaceMember.workspaceId, client.workspaceId), eq(workspaceMember.userId, userId)));
+        hub.broadcastToWorkspace(client.workspaceId, {
+          type: "presence",
+          workspaceId: client.workspaceId,
+          userId,
+          presence: "away",
+        });
       }
     });
   });

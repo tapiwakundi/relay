@@ -15,7 +15,7 @@ import type { RootStackParamList } from "../nav/types";
 export function YouScreen() {
   const insets = useSafeAreaInsets();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { me, workspace } = useWorkspace();
+  const { me, workspace, workspaces, selectWorkspace } = useWorkspace();
 
   async function setPresence(presence: string) {
     await api("/api/me", { method: "PATCH", body: JSON.stringify({ presence }) });
@@ -49,6 +49,22 @@ export function YouScreen() {
             <Pressable key={p} style={styles.row} onPress={() => void setPresence(p)}>
               <Text style={styles.rowTxt}>{p === "active" ? "Active" : p === "away" ? "Away" : "Do not disturb"}</Text>
               {me.presence === p ? <Text style={styles.check}>✓</Text> : null}
+            </Pressable>
+          ))}
+        </Glass>
+
+        <Text style={styles.sec}>Workspaces</Text>
+        <Glass style={styles.group}>
+          {workspaces.map((ws) => (
+            <Pressable
+              key={ws.id}
+              style={styles.row}
+              onPress={() => {
+                void selectWorkspace(ws.id);
+              }}
+            >
+              <Text style={styles.rowTxt}>{ws.name}</Text>
+              {ws.id === workspace.id ? <Text style={styles.check}>✓</Text> : <Text style={styles.chev}>›</Text>}
             </Pressable>
           ))}
         </Glass>

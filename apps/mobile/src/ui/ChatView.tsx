@@ -122,7 +122,7 @@ export function ChatView({
 
   async function saveLater(msg: ChatMessage) {
     await api(`/api/messages/${msg.id}/later`, { method: "POST" });
-    void qc.invalidateQueries({ queryKey: keys.later });
+    void qc.invalidateQueries({ queryKey: ["later"] });
     setPicked(null);
   }
 
@@ -188,8 +188,8 @@ export function ChatView({
                       {item.edited ? <Text style={styles.time}>(edited)</Text> : null}
                     </View>
                   )}
-                  <MessageBody body={item.body} />
-                  {item.fileName ? <Text style={styles.file}>📎 {item.fileName}</Text> : null}
+                  {item.deleted ? <Text style={styles.time}>This message was deleted</Text> : <MessageBody body={item.body} />}
+                  {!item.deleted && item.fileName ? <Text style={styles.file}>📎 {item.fileName}</Text> : null}
                   {item.reactions.length ? (
                     <View style={styles.rxns}>
                       {item.reactions.map((r) => (

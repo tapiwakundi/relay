@@ -1,9 +1,9 @@
-const g = globalThis as typeof globalThis & {
-  crypto?: {
-    getRandomValues: <T extends ArrayBufferView>(array: T) => T;
-    randomUUID: () => string;
-  };
+type CryptoShim = {
+  getRandomValues: <T extends ArrayBufferView>(array: T) => T;
+  randomUUID: () => `${string}-${string}-${string}-${string}-${string}`;
 };
+
+const g = globalThis as { crypto?: CryptoShim };
 
 function getRandomValues<T extends ArrayBufferView>(array: T): T {
   const view = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
@@ -11,7 +11,7 @@ function getRandomValues<T extends ArrayBufferView>(array: T): T {
   return array;
 }
 
-function randomUUID(): string {
+function randomUUID(): `${string}-${string}-${string}-${string}-${string}` {
   const bytes = getRandomValues(new Uint8Array(16));
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;

@@ -14,8 +14,7 @@
     "build:landing": "pnpm --filter @relay/landing build",
     "release:desktop": "bash scripts/release-desktop.sh",
     "db:generate": "pnpm --filter @relay/api db:generate",
-    "db:migrate": "pnpm --filter @relay/api db:migrate",
-    "db:push": "pnpm --filter @relay/api db:push"
+    "db:migrate": "pnpm --filter @relay/api db:migrate"
   },
   "engines": {
     "node": ">=20"

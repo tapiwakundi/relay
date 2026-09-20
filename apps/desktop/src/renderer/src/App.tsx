@@ -16,7 +16,7 @@ import { Room, RoomEvent } from "livekit-client";
 import { api, signOut } from "./lib/auth";
 import { connectWs } from "./lib/ws";
 import { Avatar } from "./components/Avatar";
-import { applyWsEvent, keys, type Bootstrap, type Me } from "./lib/query";
+import { applyWsEvent, keys, setActiveWorkspaceId, type Bootstrap, type Me, type MeResponse } from "./lib/query";
 import { Composer } from "./components/Composer";
 import { MessageList } from "./components/MessageList";
 import { CreateWorkspaceScreen } from "./components/CreateWorkspaceScreen";
@@ -73,6 +73,8 @@ export function WorkspaceApp() {
   const [rail, setRail] = useState<"home" | "dms" | "activity" | "files" | "later">("home");
   const [homeView, setHomeView] = useState<HomeView>("channels");
   const [switcher, setSwitcher] = useState(false);
+  const [creatingWorkspace, setCreatingWorkspace] = useState(false);
+  const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [dialog, setDialog] = useState<Dialog>(null);
   const [typing, setTyping] = useState<string | null>(null);
   const [inHuddle, setInHuddle] = useState(false);
@@ -90,12 +92,17 @@ export function WorkspaceApp() {
 
   const meQuery = useQuery({
     queryKey: keys.me,
-    queryFn: () => api<{ user: Me; workspace: Workspace | null }>("/api/me"),
+    queryFn: () => api<MeResponse>("/api/me"),
   });
   const me = meQuery.data?.user ?? null;
   const workspace = meQuery.data?.workspace ?? null;
+  const workspaces = meQuery.data?.workspaces ?? [];
   meIdRef.current = me?.id ?? null;
   activeIdRef.current = activeId;
+
+  useEffect(() => {
+    setActiveWorkspaceId(meQuery.data?.activeWorkspaceId ?? workspace?.id ?? null);
+  }, [meQuery.data?.activeWorkspaceId, workspace?.id]);
 
   const bootQuery = useQuery({
     queryKey: keys.bootstrap(workspace?.id ?? ""),
@@ -126,29 +133,29 @@ export function WorkspaceApp() {
   const threadMsgs = threadQuery.data?.messages ?? [];
 
   const activityQuery = useQuery({
-    queryKey: keys.activity,
+    queryKey: keys.activity(workspace?.id ?? ""),
     queryFn: () => api<{ items: ActivityItem[] }>("/api/activity"),
-    enabled: rail === "activity" || homeView === "mentions",
+    enabled: Boolean(workspace) && (rail === "activity" || homeView === "mentions"),
   });
   const filesQuery = useQuery({
-    queryKey: keys.files,
+    queryKey: keys.files(workspace?.id ?? ""),
     queryFn: () => api<{ items: FileItem[] }>("/api/files"),
-    enabled: rail === "files",
+    enabled: Boolean(workspace) && rail === "files",
   });
   const laterQuery = useQuery({
-    queryKey: keys.later,
+    queryKey: keys.later(workspace?.id ?? ""),
     queryFn: () => api<{ items: ChatMessage[] }>("/api/later"),
-    enabled: rail === "later",
+    enabled: Boolean(workspace) && rail === "later",
   });
   const threadsQuery = useQuery({
-    queryKey: keys.threads,
+    queryKey: keys.threads(workspace?.id ?? ""),
     queryFn: () => api<{ items: ChatMessage[] }>("/api/threads"),
-    enabled: homeView === "threads",
+    enabled: Boolean(workspace) && homeView === "threads",
   });
   const invitesQuery = useQuery({
-    queryKey: keys.invites,
+    queryKey: keys.invites(workspace?.id ?? ""),
     queryFn: () => api<{ invites: Invite[] }>("/api/invites"),
-    enabled: dialog === "invite",
+    enabled: Boolean(workspace) && dialog === "invite",
   });
 
   function goTo(id: string) {
@@ -185,7 +192,13 @@ export function WorkspaceApp() {
         sessionStorage.getItem("relay-invite") ??
         new URLSearchParams(window.location.search).get("invite");
       if (!token || !me) return;
-      void api("/api/invites/accept", { method: "POST", body: JSON.stringify({ token }) })
+      void api<{ workspace: Workspace }>("/api/invites/accept", { method: "POST", body: JSON.stringify({ token }) })
+        .then(async (res) => {
+          if (res.workspace?.id) {
+            await api(`/api/workspaces/${res.workspace.id}/select`, { method: "POST" });
+            setActiveWorkspaceId(res.workspace.id);
+          }
+        })
         .catch(() => null)
         .finally(() => {
           sessionStorage.removeItem("relay-invite");
@@ -248,13 +261,14 @@ export function WorkspaceApp() {
         }
       },
       () => {
+        if (workspace?.id) sock.send({ type: "workspace.select", workspaceId: workspace.id });
         const channelId = activeIdRef.current;
         if (channelId) sock.send({ type: "subscribe", channelId });
       },
     );
     wsRef.current = sock;
     return () => sock.close();
-  }, [me?.id]);
+  }, [me?.id, workspace?.id]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -470,7 +484,7 @@ export function WorkspaceApp() {
 
   async function saveLater(m: ChatMessage) {
     await api(`/api/messages/${m.id}/later`, { method: "POST" });
-    void qc.invalidateQueries({ queryKey: keys.later });
+    void qc.invalidateQueries({ queryKey: keys.later(workspace?.id ?? "") });
   }
 
   async function editMessage(m: ChatMessage, body: string) {
@@ -524,6 +538,19 @@ export function WorkspaceApp() {
     setThread(null);
     if (userId === me.id) setProfile(toMember(me));
     else setProfile(memberMap.get(userId) ?? null);
+  }
+
+  async function switchWorkspace(workspaceId: string) {
+    if (workspaceId === workspace?.id) return;
+    await api(`/api/workspaces/${workspaceId}/select`, { method: "POST" });
+    setActiveWorkspaceId(workspaceId);
+    setActiveId(null);
+    setThread(null);
+    setRail("home");
+    setHomeView("channels");
+    qc.removeQueries({ queryKey: ["bootstrap"] });
+    qc.removeQueries({ queryKey: ["messages"] });
+    await qc.invalidateQueries({ queryKey: keys.me });
   }
 
   const starred = channels.filter((c) => c.isStarred && !c.isDm);
@@ -1020,7 +1047,7 @@ export function WorkspaceApp() {
               method: "POST",
               body: JSON.stringify({ email, workspaceId: workspace.id }),
             });
-            void qc.invalidateQueries({ queryKey: keys.invites });
+            void qc.invalidateQueries({ queryKey: keys.invites(workspace.id) });
             return { url: res.invite.url };
           }}
           onClose={() => setDialog(null)}
@@ -1073,6 +1100,27 @@ export function WorkspaceApp() {
             <button onClick={() => setDialog("workspace-settings")}>Workspace settings</button>
             <button onClick={() => openProfile(me.id)}>Profile</button>
             <button onClick={() => setDialog("help")}>Keyboard shortcuts</button>
+            {workspaces.length > 0 ? (
+              <>
+                <hr />
+                <div className="title" style={{ padding: "4px 12px" }}>
+                  Workspaces
+                </div>
+                {workspaces.map((ws) => (
+                  <button
+                    key={ws.id}
+                    onClick={() => {
+                      void switchWorkspace(ws.id);
+                      setDialog(null);
+                    }}
+                  >
+                    {ws.name}
+                    {ws.id === workspace.id ? " ✓" : ""}
+                  </button>
+                ))}
+                <button onClick={() => setCreatingWorkspace(true)}>Add a workspace</button>
+              </>
+            ) : null}
             <hr />
             <button
               onClick={async () => {
@@ -1085,6 +1133,40 @@ export function WorkspaceApp() {
           </div>
         </div>
       )}
+      {creatingWorkspace ? (
+        <div className="modal-bg" onClick={() => setCreatingWorkspace(false)}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <h3>Create a workspace</h3>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const created = await api<{ workspace: Workspace }>("/api/workspaces", {
+                  method: "POST",
+                  body: JSON.stringify({ name: newWorkspaceName }),
+                });
+                await api(`/api/workspaces/${created.workspace.id}/select`, { method: "POST" });
+                setActiveWorkspaceId(created.workspace.id);
+                setNewWorkspaceName("");
+                setCreatingWorkspace(false);
+                setActiveId(null);
+                setThread(null);
+                await qc.invalidateQueries({ queryKey: keys.me });
+              }}
+            >
+              <input
+                autoFocus
+                placeholder="Workspace name"
+                value={newWorkspaceName}
+                onChange={(e) => setNewWorkspaceName(e.target.value)}
+                required
+              />
+              <button type="submit" className="btn-primary">
+                Create
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
       {dialog === "workspace-settings" && (
         <WorkspaceSettingsDialog
           workspace={workspace}

@@ -29,7 +29,7 @@ pnpm install
 cp apps/api/.env.example apps/api/.env
 cp apps/desktop/.env.example apps/desktop/.env
 neon env pull --file apps/api/.env
-pnpm --filter @relay/api db:push
+pnpm --filter @relay/api db:migrate
 pnpm dev
 ```
 
@@ -43,7 +43,7 @@ Authorized JavaScript origins:
 - `http://localhost:3001`
 - `https://relay-api-rsck.onrender.com`
 
-`pnpm dev` starts the API and the desktop app. The first account creates an empty workspace; later accounts join it. Google sign-in opens the system browser and returns to the app through `com.endurancelabs.relaydesktop://auth/callback`.
+`pnpm dev` starts the API and the desktop app. Create a workspace, or join with a targeted invite. Google sign-in opens the system browser and returns to the app through `com.endurancelabs.relaydesktop://auth/callback`.
 
 Desktop alone (API already running):
 
