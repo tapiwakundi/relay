@@ -1,6 +1,8 @@
 import { app, ipcMain, type BrowserWindow } from "electron";
-import { autoUpdater } from "electron-updater";
+import electronUpdater from "electron-updater";
 import { relayChannels, type UpdateState } from "../shared/ipc";
+
+const { autoUpdater } = electronUpdater;
 
 let installed = false;
 let getWindow: (() => BrowserWindow | null) | null = null;
