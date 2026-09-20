@@ -1,7 +1,7 @@
 {
   "name": "relay",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Relay — a Slack-style workspace messenger",
   "scripts": {
     "dev": "pnpm --filter @relay/api --filter @relay/desktop --parallel dev",
