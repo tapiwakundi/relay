@@ -113,11 +113,13 @@ The API auto-deploys on push to `https://relay-api-rsck.onrender.com`. Keep it a
 
 The API `/` route is the desktop OAuth handoff page. The landing site is the static app in `apps/landing`.
 
-## macOS release
+## Desktop release
 
-Public download:
+Public downloads:
 
-`https://github.com/tapiwakundi/relay/releases/latest/download/Relay-mac-arm64.dmg`
+- Apple Silicon: `https://github.com/tapiwakundi/relay/releases/latest/download/Relay-mac-arm64.dmg`
+- Intel Mac: `https://github.com/tapiwakundi/relay/releases/latest/download/Relay-mac-x64.dmg`
+- Windows (64-bit): `https://github.com/tapiwakundi/relay/releases/latest/download/Relay-win-x64.exe`
 
 Build and publish from your Mac. The tag comes from [`apps/desktop/package.json`](apps/desktop/package.json) (`0.1.0` → `v0.1.0`).
 
@@ -138,7 +140,9 @@ export APPLE_API_ISSUER=your-issuer-uuid
 pnpm release:desktop
 ```
 
-That signs, notarizes, pushes the current branch, and publishes `Relay-mac-arm64.dmg` to GitHub Releases. The landing-page Download button uses that latest-release URL.
+That signs and notarizes both Mac builds, cross-compiles the Windows installer, pushes the current branch, and publishes all three downloads to GitHub Releases. The landing page picks Apple Silicon, Intel, or Windows from the visitor's OS and, on Mac, the chip.
+
+The Windows installer is unsigned unless you also export `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD`. Without those, SmartScreen warns on first launch. `win.verifyUpdateCodeSignature` stays off so unsigned installs can still update; set it to `true` in `apps/desktop/electron-builder.yml` once Windows signing is in use.
 
 Local unsigned packaging uses `apps/desktop/.env.prod`. Do not distribute an unsigned DMG publicly.
 

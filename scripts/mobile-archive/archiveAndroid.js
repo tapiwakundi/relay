@@ -64,18 +64,19 @@ function aabFileName(version, buildNumber) {
 
 function syncNativeVersions(version, buildNumber) {
   const gradle = fs.readFileSync(gradlePath, "utf8");
-  const next = gradle
-    .replace(/(defaultConfig \{[\s\S]*?versionCode )\d+/, `$1${buildNumber}`)
-    .replace(
-      /(defaultConfig \{[\s\S]*?versionName )"[^"]+"/,
-      `$1"${version}"`,
-    );
-  if (next === gradle) {
+  const versionCodePattern = /(defaultConfig \{[\s\S]*?versionCode )\d+/;
+  const versionNamePattern = /(defaultConfig \{[\s\S]*?versionName )"[^"]+"/;
+  if (!versionCodePattern.test(gradle) || !versionNamePattern.test(gradle)) {
     throw new Error(
       "Could not update versionCode/versionName in android/app/build.gradle",
     );
   }
-  fs.writeFileSync(gradlePath, next);
+  const next = gradle
+    .replace(versionCodePattern, `$1${buildNumber}`)
+    .replace(versionNamePattern, `$1"${version}"`);
+  if (next !== gradle) {
+    fs.writeFileSync(gradlePath, next);
+  }
 }
 
 function withAndroidServiceAccountKeyPath(keyPath, fn) {

@@ -3,18 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Relay — workspace chat for Mac</title>
+    <title>Relay — workspace chat for Mac and Windows</title>
     <meta
       name="description"
-      content="Relay is a Slack-shaped workspace messenger for Apple Silicon. Channels, DMs, threads, and huddles in a native Mac app."
+      content="Relay is a Slack-shaped workspace messenger for Mac and Windows. Channels, DMs, threads, and huddles in a native desktop app."
     />
     <meta name="theme-color" content="#1a5fb4" />
     <link rel="icon" href="/icon.png" type="image/png" />
     <link rel="apple-touch-icon" href="/icon.png" />
-    <meta property="og:title" content="Relay — workspace chat for Mac" />
+    <meta property="og:title" content="Relay — workspace chat for Mac and Windows" />
     <meta
       property="og:description"
-      content="Download the native Apple Silicon app. Channels, DMs, threads, and huddles."
+      content="Download the native desktop app. Channels, DMs, threads, and huddles."
     />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/icon.png" />
@@ -44,18 +44,23 @@
     <main>
       <section class="hero">
         <p class="eyebrow">Endurance Labs</p>
-        <h1>Workspace chat that lives on your Mac.</h1>
+        <h1>Workspace chat that lives on your desktop.</h1>
         <p class="lede">
-          Channels, DMs, threads, and huddles in a native desktop app. Sign in with Google or email.
-          Built for Apple Silicon.
+          Channels, DMs, threads, and huddles in a native app for Mac and Windows. Sign in with Google or email.
         </p>
         <div class="cta-row" id="download">
           <a class="btn-download" id="download-btn" href="https://github.com/tapiwakundi/relay/releases/latest/download/Relay-mac-arm64.dmg">
             Download for Mac
           </a>
-          <p class="cta-note">
+          <p class="cta-note" id="download-note">
             Apple Silicon · macOS 12+ ·
             <a href="https://github.com/tapiwakundi/relay/releases">All releases</a>
+          </p>
+          <p class="alt-downloads" id="download-alts">
+            Also available for
+            <a href="https://github.com/tapiwakundi/relay/releases/latest/download/Relay-mac-x64.dmg">Intel Mac</a>
+            and
+            <a href="https://github.com/tapiwakundi/relay/releases/latest/download/Relay-win-x64.exe">Windows</a>.
           </p>
         </div>
         <p class="version" id="version">Latest build from GitHub Releases</p>
@@ -99,7 +104,7 @@
                   <div class="avatar a2">J</div>
                   <div>
                     <strong>Jordan Blake</strong> <time>9:44 AM</time>
-                    <p>Shipping the Mac build this afternoon. Apple Silicon first.</p>
+                    <p>Shipping the desktop build this afternoon.</p>
                   </div>
                 </article>
               </div>
@@ -110,11 +115,11 @@
       </section>
 
       <section class="features" id="features">
-        <h2>What ships in the Mac app</h2>
+        <h2>What ships in the desktop app</h2>
         <ul>
           <li>
             <h3>Channels and DMs</h3>
-            <p>Public rooms, private groups, and one-to-one chat with unread badges that stay in the dock.</p>
+            <p>Public rooms, private groups, and one-to-one chat, with unread badges in the sidebar.</p>
           </li>
           <li>
             <h3>Threads</h3>

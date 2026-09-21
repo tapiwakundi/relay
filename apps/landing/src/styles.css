@@ -159,13 +159,15 @@ h1 {
 }
 
 .cta-note,
+.alt-downloads,
 .version {
   color: var(--text-2);
   margin: 0;
   font-size: 14px;
 }
 
-.cta-note a {
+.cta-note a,
+.alt-downloads a {
   color: var(--aubergine);
   font-weight: 700;
 }

@@ -11,7 +11,7 @@ extraMetadata:
   main: out/main/index.js
 asar: true
 npmRebuild: false
-artifactName: Relay-mac-${arch}.${ext}
+artifactName: Relay-${os}-${arch}.${ext}
 publish:
   provider: github
   owner: tapiwakundi
@@ -24,9 +24,11 @@ mac:
     - target: dmg
       arch:
         - arm64
+        - x64
     - target: zip
       arch:
         - arm64
+        - x64
   hardenedRuntime: true
   gatekeeperAssess: false
   notarize: true
@@ -42,3 +44,12 @@ protocols:
     schemes:
       - com.endurancelabs.relaydesktop
       - relay
+win:
+  icon: packaging/icon-1024.png
+  # Unsigned Windows builds cannot pass electron-updater's signature check.
+  # Set this to true after WIN_CSC_LINK signing is in place.
+  verifyUpdateCodeSignature: false
+  target:
+    - target: nsis
+      arch:
+        - x64

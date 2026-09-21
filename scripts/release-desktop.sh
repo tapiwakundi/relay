@@ -9,10 +9,17 @@ if [[ -f "$PROD_ENV" ]]; then
   PRODUCTION_API_URL="$(grep -E '^RELAY_API_URL=' "$PROD_ENV" | tail -n1 | cut -d= -f2- | tr -d '\"' | tr -d '\r')"
 fi
 PRODUCTION_API_URL="${PRODUCTION_API_URL:-https://relay-api-rsck.onrender.com}"
-DMG="apps/desktop/release/Relay-mac-arm64.dmg"
-ZIP="apps/desktop/release/Relay-mac-arm64.zip"
-UPDATE_YML="apps/desktop/release/latest-mac.yml"
-APP="apps/desktop/release/mac-arm64/Relay.app"
+RELEASE_DIR="apps/desktop/release"
+ARM_DMG="$RELEASE_DIR/Relay-mac-arm64.dmg"
+ARM_ZIP="$RELEASE_DIR/Relay-mac-arm64.zip"
+INTEL_DMG="$RELEASE_DIR/Relay-mac-x64.dmg"
+INTEL_ZIP="$RELEASE_DIR/Relay-mac-x64.zip"
+WIN_EXE="$RELEASE_DIR/Relay-win-x64.exe"
+UPDATE_MAC="$RELEASE_DIR/latest-mac.yml"
+UPDATE_WIN="$RELEASE_DIR/latest.yml"
+ARM_APP="$RELEASE_DIR/mac-arm64/Relay.app"
+INTEL_APP="$RELEASE_DIR/mac/Relay.app"
+DOWNLOAD_BASE="https://github.com/tapiwakundi/relay/releases/latest/download"
 DESKTOP_PACKAGE="apps/desktop/package.json"
 ROOT_PACKAGE="package.json"
 VERSION=""
@@ -36,11 +43,11 @@ cleanup() {
 trap cleanup EXIT
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "Desktop releases must be built on macOS."
+  echo "Desktop releases are built on macOS, including the Intel Mac app and the Windows installer."
   exit 1
 fi
 
-for cmd in pnpm gh codesign spctl xcrun curl git node; do
+for cmd in pnpm gh codesign spctl xcrun curl git node file; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "Missing required command: $cmd"
     exit 1
@@ -116,27 +123,71 @@ else
 fi
 TAG="v${VERSION}"
 
-echo "Building, signing, and notarizing Relay ${VERSION}…"
+echo "Building Relay ${VERSION} for Apple Silicon, Intel Mac, and Windows…"
 export APP_ENV=prod
+# One electron-builder invocation so latest-mac.yml lists both Mac architectures.
 pnpm --filter @relay/desktop dist
 
-test -d "$APP"
-test -f "$DMG"
-test -f "$ZIP"
-test -f "$ZIP.blockmap"
-test -f "$UPDATE_YML"
+require_file() {
+  if [[ ! -f "$1" ]]; then
+    echo "Missing release artifact: $1"
+    exit 1
+  fi
+}
 
-echo "Verifying signature and notarization…"
-# Gatekeeper checks the app. electron-builder leaves the DMG unsigned on purpose.
-codesign --verify --deep --strict --verbose=2 "$APP"
-spctl --assess --type execute --verbose "$APP"
-xcrun stapler validate "$APP"
-shasum -a 256 "$DMG" | tee "$DMG.sha256"
-shasum -a 256 "$ZIP" | tee "$ZIP.sha256"
+require_file "$ARM_DMG"
+require_file "$ARM_ZIP"
+require_file "$ARM_ZIP.blockmap"
+require_file "$INTEL_DMG"
+require_file "$INTEL_ZIP"
+require_file "$INTEL_ZIP.blockmap"
+require_file "$WIN_EXE"
+require_file "$WIN_EXE.blockmap"
+require_file "$UPDATE_MAC"
+require_file "$UPDATE_WIN"
+test -d "$ARM_APP"
+test -d "$INTEL_APP"
+grep -q "Relay-mac-arm64.zip" "$UPDATE_MAC"
+grep -q "Relay-mac-x64.zip" "$UPDATE_MAC"
+grep -q "Relay-win-x64.exe" "$UPDATE_WIN"
+if ! file "$WIN_EXE" | grep -q "PE32+"; then
+  echo "Windows installer is not a 64-bit Windows executable: $WIN_EXE"
+  exit 1
+fi
 
-ASSETS=("$DMG" "$DMG.sha256" "$ZIP" "$ZIP.sha256" "$ZIP.blockmap" "$UPDATE_YML")
-if [[ -f "$DMG.blockmap" ]]; then
-  ASSETS+=("$DMG.blockmap")
+verify_mac_app() {
+  local app="$1"
+  echo "Verifying signature and notarization for $app…"
+  # Gatekeeper checks the app. electron-builder leaves the DMG unsigned on purpose.
+  codesign --verify --deep --strict --verbose=2 "$app"
+  spctl --assess --type execute --verbose "$app"
+  xcrun stapler validate "$app"
+}
+
+verify_mac_app "$ARM_APP"
+verify_mac_app "$INTEL_APP"
+
+checksum() {
+  shasum -a 256 "$1" | tee "$1.sha256"
+}
+
+checksum "$ARM_DMG"
+checksum "$ARM_ZIP"
+checksum "$INTEL_DMG"
+checksum "$INTEL_ZIP"
+checksum "$WIN_EXE"
+
+ASSETS=(
+  "$ARM_DMG" "$ARM_DMG.sha256" "$ARM_ZIP" "$ARM_ZIP.sha256" "$ARM_ZIP.blockmap"
+  "$INTEL_DMG" "$INTEL_DMG.sha256" "$INTEL_ZIP" "$INTEL_ZIP.sha256" "$INTEL_ZIP.blockmap"
+  "$WIN_EXE" "$WIN_EXE.sha256" "$WIN_EXE.blockmap"
+  "$UPDATE_MAC" "$UPDATE_WIN"
+)
+if [[ -f "$ARM_DMG.blockmap" ]]; then
+  ASSETS+=("$ARM_DMG.blockmap")
+fi
+if [[ -f "$INTEL_DMG.blockmap" ]]; then
+  ASSETS+=("$INTEL_DMG.blockmap")
 fi
 
 if [[ "$VERSION_BUMPED" -eq 1 ]]; then
@@ -149,12 +200,14 @@ echo "Pushing $(git rev-parse --abbrev-ref HEAD) to origin…"
 git push -u origin HEAD
 
 NOTES="$(printf '%s\n' \
-  "Relay ${VERSION} for Apple Silicon." \
+  "Relay ${VERSION} for macOS and Windows." \
   "" \
-  "Download: https://github.com/tapiwakundi/relay/releases/latest/download/Relay-mac-arm64.dmg" \
+  "Apple Silicon: ${DOWNLOAD_BASE}/Relay-mac-arm64.dmg" \
+  "Intel Mac: ${DOWNLOAD_BASE}/Relay-mac-x64.dmg" \
+  "Windows: ${DOWNLOAD_BASE}/Relay-win-x64.exe" \
+  "" \
   "Existing installations can update from Relay → Check for Updates." \
-  "" \
-  "Requires macOS 12+ on Apple Silicon. The app talks to ${PRODUCTION_API_URL}.")"
+  "Requires macOS 12+ or 64-bit Windows 10+. The app talks to ${PRODUCTION_API_URL}.")"
 
 TARGET="$(git rev-parse HEAD)"
 if gh release view "$TAG" >/dev/null 2>&1; then
@@ -171,5 +224,10 @@ fi
 
 echo "Published ${TAG}:"
 echo "  https://github.com/tapiwakundi/relay/releases/tag/${TAG}"
-echo "  https://github.com/tapiwakundi/relay/releases/latest/download/Relay-mac-arm64.dmg"
-echo "  Automatic update metadata: https://github.com/tapiwakundi/relay/releases/latest/download/latest-mac.yml"
+echo "  ${DOWNLOAD_BASE}/Relay-mac-arm64.dmg"
+echo "  ${DOWNLOAD_BASE}/Relay-mac-x64.dmg"
+echo "  ${DOWNLOAD_BASE}/Relay-win-x64.exe"
+echo "  Automatic update metadata: ${DOWNLOAD_BASE}/latest-mac.yml and ${DOWNLOAD_BASE}/latest.yml"
+if [[ -z "${WIN_CSC_LINK:-}" ]]; then
+  echo "Windows installer is unsigned. SmartScreen will warn until WIN_CSC_LINK and WIN_CSC_KEY_PASSWORD are set."
+fi
