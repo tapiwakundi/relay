@@ -124,7 +124,13 @@ export function createApp(opts: { db: AppDb; hub: Hub; auth: Auth }) {
       const userId = c.get("userId");
       const requested = workspaceHeader(c.req.raw.headers) ?? c.req.query("workspaceId") ?? null;
       const workspaces = await listWorkspaceSummaries(db, userId);
-      const activeWorkspaceId = await resolveActiveWorkspaceId(db, userId, requested);
+      let activeWorkspaceId: string | null;
+      try {
+        activeWorkspaceId = await resolveActiveWorkspaceId(db, userId, requested);
+      } catch (err) {
+        if (!(err instanceof HttpError) || err.status !== 403 || !requested) throw err;
+        activeWorkspaceId = await resolveActiveWorkspaceId(db, userId, null);
+      }
       const [urow] = await db.select().from(user).where(eq(user.id, userId)).limit(1);
       const mem = activeWorkspaceId
         ? (

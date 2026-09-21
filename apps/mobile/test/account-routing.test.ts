@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { accountAuthHeaders } from "../src/lib/account-headers";
 import { navFromPush, openPendingIfReady, peekPendingNav, setPendingChannelOpener, setPendingNav, takePendingNav } from "../src/lib/pending-nav";
-import { notifyAccountExpired, onAccountExpired } from "../src/lib/session";
+import { notifyAccountExpired, onAccountExpired, suppressAccountExpiry } from "../src/lib/session";
 
 describe("mobile account routing", () => {
   it("attaches only the selected account's credentials", () => {
@@ -49,5 +49,17 @@ describe("mobile account routing", () => {
     stop();
     notifyAccountExpired("u1");
     assert.deepEqual(seen, ["u2"]);
+  });
+
+  it("ignores 401s for an account that is already being signed out", () => {
+    const seen: Array<string | null> = [];
+    const stop = onAccountExpired((id) => seen.push(id));
+    const release = suppressAccountExpiry("u2");
+    notifyAccountExpired("u2");
+    notifyAccountExpired("u1");
+    release();
+    notifyAccountExpired("u2");
+    stop();
+    assert.deepEqual(seen, ["u1", "u2"]);
   });
 });

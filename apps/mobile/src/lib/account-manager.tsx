@@ -7,8 +7,8 @@ import { unreadTotals, workspacePreviewFromMe } from "@relay/shared";
 import {
   accountVault,
   api,
+  discardPendingAuth,
   extractCredentials,
-  liveClient,
   pendingAuthClient,
   setActiveAccountId,
   setAddingAccount,
@@ -23,7 +23,7 @@ import {
   syncAccountSockets,
   closeAccountSockets,
 } from "./realtime-hub";
-import { onAccountExpired } from "./session";
+import { onAccountExpired, suppressAccountExpiry } from "./session";
 
 type AccountCtx = {
   ready: boolean;
@@ -64,6 +64,7 @@ async function refreshOne(accountId: string) {
 }
 
 let pushToken: string | null = null;
+const removals = new Set<string>();
 
 function expoProjectId() {
   return Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId ?? null;
@@ -158,17 +159,25 @@ export function AccountManager({ children }: { children: ReactNode }) {
   const removeAccount = useCallback(
     async (id?: string | null) => {
       const target = id ?? activeAccountId;
-      if (!target) return;
-      if (target === activeAccountId) await signOut();
-      await unregisterPush(target);
-      const next = await accountVault.remove(target);
-      setReady(false);
-      await dropQueryPersistence(target);
-      if (next) await attachQueryPersistence(next);
-      else await detachQueryPersistence();
-      setActiveAccountId(next);
-      await publish();
-      setReady(true);
+      if (!target || removals.has(target)) return;
+      removals.add(target);
+      const releaseExpiry = suppressAccountExpiry(target);
+      try {
+        if (!(await accountVault.snapshot()).accounts[target]) return;
+        if (target === activeAccountId) await signOut();
+        await unregisterPush(target);
+        const next = await accountVault.remove(target);
+        setReady(false);
+        await dropQueryPersistence(target);
+        if (next) await attachQueryPersistence(next);
+        else await detachQueryPersistence();
+        setActiveAccountId(next);
+        await publish();
+        setReady(true);
+      } finally {
+        releaseExpiry();
+        removals.delete(target);
+      }
     },
     [activeAccountId, publish],
   );
@@ -194,7 +203,7 @@ export function AccountManager({ children }: { children: ReactNode }) {
     }
     await accountVault.upsert(creds);
     await accountVault.setActive(creds.id);
-    if (adding) await signOutClient(pendingAuthClient).catch(() => null);
+    if (adding) await discardPendingAuth();
     await attachQueryPersistence(creds.id);
     await registerPush(creds.id);
     await refreshOne(creds.id);

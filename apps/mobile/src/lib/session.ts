@@ -1,4 +1,5 @@
 let expired: ((accountId: string | null) => void) | null = null;
+const suppressed = new Set<string>();
 
 export function onAccountExpired(cb: (accountId: string | null) => void) {
   expired = cb;
@@ -7,7 +8,15 @@ export function onAccountExpired(cb: (accountId: string | null) => void) {
   };
 }
 
+export function suppressAccountExpiry(accountId: string) {
+  suppressed.add(accountId);
+  return () => {
+    suppressed.delete(accountId);
+  };
+}
+
 export function notifyAccountExpired(accountId: string | null) {
+  if (accountId && suppressed.has(accountId)) return;
   expired?.(accountId);
 }
 

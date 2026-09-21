@@ -2,7 +2,7 @@ import { createAuthClient } from "better-auth/react";
 import { expoClient } from "@better-auth/expo/client";
 import * as SecureStore from "expo-secure-store";
 import { notifyAccountExpired } from "./session";
-import { getActiveWorkspaceId } from "./query";
+import { getActiveWorkspaceId, setActiveWorkspaceId } from "./query";
 import { createMobileAccountVault, type StoredAccount } from "./account-vault";
 import { accountAuthHeaders } from "./account-headers";
 import { localGoogleOAuthHeaders, resolveApiOrigin } from "./api-origin";
@@ -50,6 +50,7 @@ export function getActiveAccountId() {
 }
 
 export function setActiveAccountId(id: string | null) {
+  if (id !== activeAccountId) setActiveWorkspaceId(null);
   activeAccountId = id;
 }
 
@@ -189,6 +190,12 @@ export async function signInGoogle() {
 
 export async function signOutClient(client = liveClient()) {
   await client.signOut();
+}
+
+/** Forget the pending sign-in locally. The vault already holds that server session, so this must not revoke it. */
+export async function discardPendingAuth() {
+  await SecureStore.setItemAsync("relay.pending_cookie", "{}");
+  await pendingAuthClient.signOut().catch(() => null);
 }
 
 export async function signOut() {
