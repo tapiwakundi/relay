@@ -140,7 +140,7 @@ export APPLE_API_ISSUER=your-issuer-uuid
 pnpm release:desktop
 ```
 
-That signs and notarizes both Mac builds, cross-compiles the Windows installer, pushes the current branch, and publishes all three downloads to GitHub Releases. The landing page picks Apple Silicon, Intel, or Windows from the visitor's OS and, on Mac, the chip.
+That signs and notarizes both Mac builds, cross-compiles the Windows installer with the Apple Silicon NSIS compiler, pushes the current branch, and publishes all three downloads to GitHub Releases. The landing page picks Apple Silicon, Intel, or Windows from the visitor's OS and, on Mac, the chip.
 
 The Windows installer is unsigned unless you also export `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD`. Without those, SmartScreen warns on first launch. `win.verifyUpdateCodeSignature` stays off so unsigned installs can still update; set it to `true` in `apps/desktop/electron-builder.yml` once Windows signing is in use.
 

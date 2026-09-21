@@ -12,6 +12,9 @@ extraMetadata:
 asar: true
 npmRebuild: false
 artifactName: Relay-${os}-${arch}.${ext}
+# Legacy NSIS 3.0.4 ships an Intel-only makensis, which cannot start on Apple Silicon without Rosetta.
+toolsets:
+  nsis: "1.2.1"
 publish:
   provider: github
   owner: tapiwakundi
