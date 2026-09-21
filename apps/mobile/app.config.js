@@ -58,11 +58,17 @@ const { expo } = require("./app.json");
 const buildNumber = expo.buildNumber || 1;
 const storeRelease = appEnv !== LOCAL_APP_ENV;
 
-function withStorePlugins(plugins) {
-  if (!storeRelease) return plugins;
+function withEnvPlugins(plugins) {
   return plugins.map((plugin) => {
     if (Array.isArray(plugin) && plugin[0] === "expo-notifications") {
-      return [plugin[0], { ...plugin[1], mode: "production" }];
+      return [
+        plugin[0],
+        {
+          ...plugin[1],
+          // Debug `expo run:ios` signs aps-environment=development; Release archives use production.
+          mode: storeRelease ? "production" : "development",
+        },
+      ];
     }
     return plugin;
   });
@@ -80,6 +86,6 @@ module.exports = {
       ...expo.android,
       versionCode: buildNumber,
     },
-    plugins: withStorePlugins(expo.plugins),
+    plugins: withEnvPlugins(expo.plugins),
   },
 };

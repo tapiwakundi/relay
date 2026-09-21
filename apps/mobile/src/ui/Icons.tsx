@@ -33,7 +33,7 @@ export function IconDots({ color = colors.muted, size = 22 }: { color?: string; 
 }
 
 export function IconSearch({ color = colors.ink, size = 22 }: { color?: string; size?: number }) {
-  return <Ion name="search" color={color} size={size} />;
+  return <Ion name="search-outline" color={color} size={size} />;
 }
 
 export function IconPencil({ color = colors.headerInk, size = 18 }: { color?: string; size?: number }) {
@@ -52,8 +52,16 @@ export function IconPlus({ color = "#fff", size = 22 }: { color?: string; size?:
   return <Ion name="add" color={color} size={size} />;
 }
 
-export function IconHeadphones({ color = colors.muted, size = 22 }: { color?: string; size?: number }) {
-  return <Ion name="headset-outline" color={color} size={size} />;
+export function IconHeadphones({
+  color = colors.muted,
+  size = 22,
+  filled,
+}: {
+  color?: string;
+  size?: number;
+  filled?: boolean;
+}) {
+  return <Ion name={filled ? "headset" : "headset-outline"} color={color} size={size} />;
 }
 
 export function IconBookmark({ color = colors.muted, size = 22 }: { color?: string; size?: number }) {
@@ -66,8 +74,4 @@ export function IconThreads({ color = colors.muted, size = 22 }: { color?: strin
 
 export function IconStar({ color = colors.muted, size = 16 }: { color?: string; size?: number }) {
   return <Ion name="star-outline" color={color} size={size} />;
-}
-
-export function IconSlackbot({ size = 22 }: { size?: number }) {
-  return <Ion name="sparkles" color={colors.aubergine} size={size} />;
 }

@@ -262,6 +262,15 @@ export function registerExtraRoutes(authed: Hono<Env>, db: AppDb, hub: Hub) {
     }),
   );
 
+  authed.get(
+    "/messages/:id",
+    handle(async (c) => {
+      const access = await requireMessageAccess(db, routeParam(c, "id"), c.get("userId"));
+      const [hydrated] = await hydrateMessages(db, [access.message]);
+      return c.json({ message: hydrated });
+    }),
+  );
+
   authed.patch(
     "/messages/:id",
     handle(async (c) => {

@@ -25,6 +25,10 @@ export function formatDay(iso: string) {
   return d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
 }
 
+export function formatStamp(iso: string) {
+  return `${formatDay(iso)} at ${formatTime(iso)}`;
+}
+
 export function sameMinute(a: string, b: string) {
   return Math.abs(new Date(a).getTime() - new Date(b).getTime()) < 5 * 60_000;
 }

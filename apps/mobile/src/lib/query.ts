@@ -21,6 +21,7 @@ export const keys = {
   me: ["me"] as const,
   bootstrap: (wsId: string) => ["bootstrap", wsId] as const,
   messages: (channelId: string, parentId: string | null) => ["messages", channelId, parentId] as const,
+  message: (id: string) => ["message", id] as const,
   activity: (wsId: string) => ["activity", wsId] as const,
   files: (wsId: string) => ["files", wsId] as const,
   later: (wsId: string) => ["later", wsId] as const,
@@ -108,6 +109,7 @@ export function applyWsEvent(ev: WsServerEvent, meId: string) {
     });
   }
   if (ev.type === "message.updated") {
+    queryClient.setQueryData(keys.message(ev.message.id), ev.message);
     const parentId = ev.message.parentId ?? null;
     queryClient.setQueryData<{ messages: ChatMessage[] }>(keys.messages(ev.message.channelId, parentId), (old) => {
       if (!old) return old;

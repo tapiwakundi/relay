@@ -8,6 +8,7 @@ import { useAccounts } from "../lib/account-manager";
 import { navFromPush, openPendingIfReady, setPendingChannelOpener, setPendingNav } from "../lib/pending-nav";
 import { useWorkspace } from "../lib/workspace";
 import { GlassTabBar } from "./GlassTabBar";
+import { colors } from "../ui/theme";
 import { ActivityScreen } from "../screens/ActivityScreen";
 import { ChannelScreen } from "../screens/ChannelScreen";
 import { DmsScreen } from "../screens/DmsScreen";
@@ -31,7 +32,7 @@ export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 const theme = {
   ...DefaultTheme,
-  colors: { ...DefaultTheme.colors, background: "#FFFFFF", card: "#FFFFFF" },
+  colors: { ...DefaultTheme.colors, background: colors.canvas, card: colors.canvas },
 };
 
 function TabNav() {
@@ -40,7 +41,7 @@ function TabNav() {
       tabBar={(props) => <GlassTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        sceneStyle: { backgroundColor: "#FFFFFF" },
+        sceneStyle: { backgroundColor: colors.canvas },
         tabBarStyle: { position: "absolute", backgroundColor: "transparent", borderTopWidth: 0, elevation: 0 },
       }}
     >
@@ -86,7 +87,7 @@ export function RootNav() {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: "#FFFFFF" },
+          contentStyle: { backgroundColor: colors.canvas },
           animation: "slide_from_right",
         }}
       >

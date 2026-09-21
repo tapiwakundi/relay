@@ -10,12 +10,14 @@ export function Avatar({
   size = 36,
   onPress,
   presence,
+  round,
 }: {
   name: string;
   image?: string | null;
   size?: number;
   onPress?: () => void;
   presence?: string | null;
+  round?: boolean;
 }) {
   const [broken, setBroken] = useState(false);
   const show = Boolean(image && !broken);
@@ -26,7 +28,7 @@ export function Avatar({
         {
           width: size,
           height: size,
-          borderRadius: size * 0.28,
+          borderRadius: round ? size / 2 : size * 0.28,
           backgroundColor: show ? "transparent" : hue(name),
         },
       ]}
@@ -34,7 +36,7 @@ export function Avatar({
       {show ? (
         <Image
           source={{ uri: image! }}
-          style={{ width: size, height: size }}
+          style={{ width: size, height: size, borderRadius: round ? size / 2 : 0 }}
           contentFit="cover"
           onError={() => setBroken(true)}
         />

@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ChatMessage, FileItem } from "@relay/shared";
 import { api } from "../lib/auth";
 import { formatTime } from "../lib/format";
@@ -63,6 +63,7 @@ export function FilesScreen({ navigation }: NativeStackScreenProps<RootStackPara
 
 export function ThreadsScreen({ navigation }: NativeStackScreenProps<RootStackParamList, "Threads">) {
   const { workspace } = useWorkspace();
+  const qc = useQueryClient();
   const q = useQuery({
     queryKey: keys.threads(workspace.id),
     queryFn: () => api<{ items: ChatMessage[] }>("/api/threads"),
@@ -72,7 +73,10 @@ export function ThreadsScreen({ navigation }: NativeStackScreenProps<RootStackPa
       {(q.data?.items ?? []).map((m) => (
         <Pressable
           key={m.id}
-          onPress={() => navigation.navigate("Thread", { channelId: m.channelId, parentId: m.id })}
+          onPress={() => {
+            qc.setQueryData(keys.message(m.id), m);
+            navigation.navigate("Thread", { channelId: m.channelId, parentId: m.id });
+          }}
         >
           <View style={styles.card}>
             <Text style={styles.name}>

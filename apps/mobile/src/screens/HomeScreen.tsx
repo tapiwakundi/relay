@@ -17,7 +17,6 @@ import {
   IconHeadphones,
   IconLock,
   IconPlus,
-  IconSlackbot,
   IconStar,
   IconThreads,
 } from "../ui/Icons";
@@ -42,7 +41,6 @@ export function HomeScreen() {
   const selfDm = dms.find((c) => c.isDm && !c.isMpim && (c.memberCount <= 1 || c.dmName === me.displayName));
   const otherDms = dms.filter((c) => c.id !== selfDm?.id);
   const liveHuddles = channels.filter((c) => c.huddle?.active);
-  const slackbot = channels.find((c) => /slackbot|keylobot|relaybot/i.test(`${c.name} ${c.dmName ?? ""}`));
   const threadNew = channels.filter((c) => !c.isDm && c.unreadCount > 0).length;
   const laterCount = 0;
 
@@ -61,12 +59,6 @@ export function HomeScreen() {
         <ScrollingHero title={workspace.name} chevron onTitlePress={() => setSwitcher(true)} />
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tiles}>
-          <Shortcut
-            icon={<IconSlackbot size={26} />}
-            label="Slackbot"
-            sub="Ask anything"
-            onPress={() => (slackbot ? nav.navigate("Channel", { channelId: slackbot.id }) : nav.navigate("Search"))}
-          />
           <Shortcut
             icon={<IconThreads color={colors.aubergine} size={26} />}
             label="Threads"
