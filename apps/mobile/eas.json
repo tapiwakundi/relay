@@ -28,7 +28,7 @@
     },
     "internal-testing": {
       "android": {
-        "applicationId": "com.endurancelabs.relay",
+        "applicationId": "com.endurancelabs.relayapp",
         "track": "internal",
         "releaseStatus": "completed"
       }

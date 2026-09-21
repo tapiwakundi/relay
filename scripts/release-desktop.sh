@@ -150,8 +150,10 @@ test -d "$INTEL_APP"
 grep -q "Relay-mac-arm64.zip" "$UPDATE_MAC"
 grep -q "Relay-mac-x64.zip" "$UPDATE_MAC"
 grep -q "Relay-win-x64.exe" "$UPDATE_WIN"
-if ! file "$WIN_EXE" | grep -q "PE32+"; then
-  echo "Windows installer is not a 64-bit Windows executable: $WIN_EXE"
+# NSIS installers are a 32-bit stub ("PE32 … Intel 80386") even when the packaged app is x64.
+if ! file "$WIN_EXE" | grep -q "Nullsoft Installer"; then
+  echo "Windows installer is not an NSIS executable: $WIN_EXE"
+  file "$WIN_EXE"
   exit 1
 fi
 

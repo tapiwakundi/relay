@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:737906936170:android:097b1226a3113b13813d13",
+        "mobilesdk_app_id": "1:737906936170:android:187062d4a09d72ea813d13",
         "android_client_info": {
-          "package_name": "com.endurancelabs.relay"
+          "package_name": "com.endurancelabs.relayapp"
         }
       },
       "oauth_client": [],

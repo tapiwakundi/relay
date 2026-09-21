@@ -85,7 +85,7 @@ function playServiceAccountHelp() {
   return [
     "Google Play uploads need a Play Console service account JSON. There is no Xcode-style signed-in session.",
     `Create a key: ${PLAY_SERVICE_ACCOUNT_GUIDE_URL}`,
-    `Invite that service account to the Play app (com.endurancelabs.relay), then either place ${PLAY_SERVICE_ACCOUNT_FILE_NAME} in the app directory, set ${GOOGLE_SERVICE_ACCOUNT_KEY_ENV}, or upload the key with: npx eas-cli credentials --platform android`,
+    `Invite that service account to the Play app (com.endurancelabs.relayapp), then either place ${PLAY_SERVICE_ACCOUNT_FILE_NAME} in the app directory, set ${GOOGLE_SERVICE_ACCOUNT_KEY_ENV}, or upload the key with: npx eas-cli credentials --platform android`,
   ].join("\n");
 }
 

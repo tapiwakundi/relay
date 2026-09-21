@@ -46,7 +46,7 @@
       "backgroundColor": "#ffffff"
     },
     "android": {
-      "package": "com.endurancelabs.relay",
+      "package": "com.endurancelabs.relayapp",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
