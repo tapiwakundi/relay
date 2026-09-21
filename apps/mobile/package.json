@@ -9,7 +9,9 @@
     "ios": "pnpm setup:env && expo run:ios --device 00008140-001C50401A9B001C",
     "ios:sim": "pnpm setup:env && expo run:ios",
     "android": "pnpm setup:env && expo run:android --device",
-    "prebuild": "expo prebuild",
+    "prebuild:ios": "node ../../scripts/mobile-archive/incrementBuildNumber.js && APP_ENV=prod EXPO_APPLE_TEAM_ID=4WUJ6V99Q5 npx expo prebuild --clean --platform ios",
+    "archive": "node ../../scripts/mobile-archive/archiveIos.js",
+    "archive:ios": "node ../../scripts/mobile-archive/archiveIos.js",
     "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {

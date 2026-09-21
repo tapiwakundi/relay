@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AppState, Platform } from "react-native";
+import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import type { MeResponse, RelayAccountSummary } from "@relay/shared";
 import { unreadTotals, workspacePreviewFromMe } from "@relay/shared";
@@ -58,12 +59,31 @@ async function refreshOne(accountId: string) {
 
 let pushToken: string | null = null;
 
+function expoProjectId() {
+  return Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId ?? null;
+}
+
 export async function currentPushToken() {
   if (pushToken) return pushToken;
   try {
-    const { status } = await Notifications.requestPermissionsAsync();
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "Messages",
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: "#1A5FB4",
+      });
+    }
+    const existing = await Notifications.getPermissionsAsync();
+    let status = existing.status;
+    if (status !== "granted") {
+      const requested = await Notifications.requestPermissionsAsync();
+      status = requested.status;
+    }
     if (status !== "granted") return null;
-    const device = await Notifications.getExpoPushTokenAsync();
+    const projectId = expoProjectId();
+    if (!projectId) return null;
+    const device = await Notifications.getExpoPushTokenAsync({ projectId });
     pushToken = device.data;
     return pushToken;
   } catch {

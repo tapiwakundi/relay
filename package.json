@@ -13,6 +13,9 @@
     "build": "pnpm --filter @relay/shared build && pnpm --filter @relay/api build && pnpm --filter @relay/desktop build && pnpm --filter @relay/landing build",
     "build:landing": "pnpm --filter @relay/landing build",
     "release:desktop": "bash scripts/release-desktop.sh",
+    "archive": "pnpm --filter @relay/mobile archive",
+    "archive:ios": "pnpm --filter @relay/mobile archive:ios",
+    "prebuild:ios": "pnpm --filter @relay/mobile prebuild:ios",
     "db:generate": "pnpm --filter @relay/api db:generate",
     "db:migrate": "pnpm --filter @relay/api db:migrate"
   },

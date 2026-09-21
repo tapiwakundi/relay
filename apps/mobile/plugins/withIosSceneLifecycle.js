@@ -22,7 +22,8 @@ module.exports = function withIosSceneLifecycle(config) {
     "ios",
     async (mod) => {
       const src = path.join(__dirname, "ios", "AppDelegate.swift");
-      const dest = path.join(mod.modRequest.platformProjectRoot, "Relay", "AppDelegate.swift");
+      const projectName = mod.modRequest.projectName || "Relay";
+      const dest = path.join(mod.modRequest.platformProjectRoot, projectName, "AppDelegate.swift");
       fs.copyFileSync(src, dest);
       return mod;
     },

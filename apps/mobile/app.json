@@ -2,7 +2,9 @@
   "expo": {
     "name": "Re8",
     "slug": "relay",
+    "owner": "tapiwa.k",
     "version": "0.1.0",
+    "buildNumber": 3,
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "relay",
@@ -13,6 +15,7 @@
       "bundleIdentifier": "com.endurancelabs.relayapp",
       "appleTeamId": "4WUJ6V99Q5",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "UIApplicationSceneManifest": {
           "UIApplicationSupportsMultipleScenes": false,
           "UISceneConfigurations": {
@@ -24,7 +27,11 @@
             ]
           }
         },
-        "UIBackgroundModes": ["audio", "voip", "remote-notification"],
+        "UIBackgroundModes": [
+          "audio",
+          "voip",
+          "remote-notification"
+        ],
         "NSPhotoLibraryUsageDescription": "Relay uses your photos for profile pictures and workspace icons.",
         "NSCameraUsageDescription": "Relay uses the camera so you can take a profile photo.",
         "NSLocalNetworkUsageDescription": "Relay uses the local network to reach your computer while developing.",
@@ -44,11 +51,17 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "permissions": ["RECORD_AUDIO", "CAMERA", "POST_NOTIFICATIONS", "READ_MEDIA_IMAGES"]
+      "permissions": [
+        "RECORD_AUDIO",
+        "CAMERA",
+        "POST_NOTIFICATIONS",
+        "READ_MEDIA_IMAGES"
+      ]
     },
     "plugins": [
       "./plugins/withIosMinTarget",
       "./plugins/withIosSceneLifecycle",
+      "./plugins/withXcodeEnv",
       [
         "expo-dev-client",
         {
@@ -58,7 +71,9 @@
       [
         "expo-notifications",
         {
-          "sounds": []
+          "color": "#1A5FB4",
+          "defaultChannel": "default",
+          "enableBackgroundRemoteNotifications": true
         }
       ],
       "expo-secure-store",
@@ -70,6 +85,11 @@
           "cameraPermission": "Relay uses the camera so you can take a profile photo."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1908791e-bfaf-4cb7-b739-702e149d50e7"
+      }
+    }
   }
 }
