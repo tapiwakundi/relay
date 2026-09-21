@@ -1,9 +1,17 @@
 import { QueryClient } from "@tanstack/react-query";
 import type { Channel, ChatMessage, InboxInvite, Member, Workspace, WorkspaceSummary, WsServerEvent } from "@relay/shared";
+import { QUERY_CACHE_GC_TIME, shouldPersistQuery } from "./query-persist-core";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 5_000 },
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 0,
+      gcTime: QUERY_CACHE_GC_TIME,
+      refetchOnReconnect: true,
+    },
+    dehydrate: { shouldDehydrateQuery: shouldPersistQuery },
   },
 });
 

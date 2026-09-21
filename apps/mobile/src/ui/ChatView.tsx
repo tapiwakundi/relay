@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Keyboard,
@@ -209,6 +210,15 @@ export function ChatView({
           if (parentId) return;
           list.current?.scrollToEnd({ animated: false });
         }}
+        ListEmptyComponent={
+          msgQ.data ? null : msgQ.isPending ? (
+            <ActivityIndicator color={colors.aubergine} style={{ marginTop: 28 }} />
+          ) : msgQ.isError ? (
+            <Pressable onPress={() => void msgQ.refetch()} style={{ padding: 16 }}>
+              <Text style={{ color: colors.muted, textAlign: "center" }}>Couldn’t load messages. Tap to retry.</Text>
+            </Pressable>
+          ) : null
+        }
         ListHeaderComponent={
           parent ? (
             <ThreadHero

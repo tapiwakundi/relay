@@ -8,12 +8,15 @@ import { StatusBar } from "expo-status-bar";
 import { AccountManager, useAccounts } from "./src/lib/account-manager";
 import { api } from "./src/lib/auth";
 import { keys, queryClient, type MeResponse } from "./src/lib/query";
+import { bindQueryOnlineManager } from "./src/lib/query-persist";
 import { WorkspaceProvider } from "./src/lib/workspace";
 import { RootNav } from "./src/nav/Root";
 import { AcceptInviteScreen } from "./src/screens/AcceptInviteScreen";
 import { CreateWorkspaceScreen } from "./src/screens/CreateWorkspaceScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { colors } from "./src/ui/theme";
+
+bindQueryOnlineManager();
 
 export default function App() {
   return (
@@ -60,7 +63,7 @@ function Gate() {
 
   const meQ = useQuery({
     queryKey: keys.me,
-    enabled: Boolean(activeAccountId) && !adding,
+    enabled: Boolean(activeAccountId) && !adding && ready,
     queryFn: () => api<MeResponse>("/api/me"),
   });
 
@@ -71,9 +74,11 @@ function Gate() {
   if (!activeAccountId) {
     return <LoginScreen />;
   }
-  if (meQ.isLoading) return <Splash />;
-  if (meQ.isError) {
-    return <Splash error="Can't reach Relay" onRetry={() => void meQ.refetch()} />;
+  if (!meQ.data) {
+    if (meQ.isError || meQ.fetchStatus === "paused") {
+      return <Splash error="Can't reach Relay" onRetry={() => void meQ.refetch()} />;
+    }
+    return <Splash />;
   }
   if (!meQ.data?.workspace) {
     const pendingInvites = meQ.data?.pendingInvites ?? [];

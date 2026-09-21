@@ -196,12 +196,12 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.06)",
+    backgroundColor: "rgba(0,0,0,0.04)",
   },
   meta: { flex: 1, minWidth: 0 },
   title: { color: colors.ink, fontSize: 16, fontWeight: "800", letterSpacing: -0.2 },
   sub: { color: colors.muted, fontSize: 12, fontWeight: "600", marginTop: 1 },
   fallback: {
-    backgroundColor: "rgba(255,255,255,0.78)",
+    backgroundColor: "rgba(255,255,255,0.96)",
   },
 });

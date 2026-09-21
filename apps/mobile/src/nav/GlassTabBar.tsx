@@ -54,7 +54,12 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
         onPress={() => {
           void Haptics.selectionAsync();
           const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-          if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+          if (focused || event.defaultPrevented) return;
+          if ("jumpTo" in navigation && typeof navigation.jumpTo === "function") {
+            navigation.jumpTo(route.name);
+            return;
+          }
+          navigation.navigate(route.name);
         }}
       >
         {focused ? (
@@ -94,7 +99,7 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
     return (
       <View style={wrapStyle} pointerEvents="box-none">
         <GlassContainer spacing={10} pointerEvents="box-none" style={styles.row}>
-          <GlassView style={styles.pill} glassEffectStyle="clear" isInteractive colorScheme="light">
+          <GlassView style={styles.pill} glassEffectStyle="clear" isInteractive colorScheme="light" pointerEvents="box-none">
             {tabs}
           </GlassView>
           <GlassView style={styles.search} glassEffectStyle="clear" isInteractive colorScheme="light">
@@ -176,6 +181,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   fallback: {
-    backgroundColor: "rgba(255,255,255,0.82)",
+    backgroundColor: "rgba(255,255,255,0.96)",
   },
 });

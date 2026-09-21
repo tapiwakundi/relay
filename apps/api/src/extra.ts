@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import type { Hono } from "hono";
 import type { SearchHit } from "@relay/shared";
 import {
@@ -31,7 +31,7 @@ import {
   type AuthPerson,
 } from "./domain.js";
 import { handle, routeParam } from "./errors.js";
-import type { Hub } from "./hub.js";
+import { extractMentions, type Hub } from "./hub.js";
 import {
   getMembers,
   hydrateMessages,
@@ -390,25 +390,47 @@ export function registerExtraRoutes(authed: Hono<Env>, db: AppDb, hub: Hub) {
       const userId = c.get("userId");
       const workspaceId = await requestedWorkspace(c, db, userId);
       const names = await mentionMap(db, workspaceId);
-      const myNames = [...names.entries()].filter(([, id]) => id === userId).map(([n]) => n);
       const memberships = await db
         .select()
         .from(channelMember)
         .where(and(eq(channelMember.workspaceId, workspaceId), eq(channelMember.userId, userId), isNull(channelMember.leftAt)));
       const ids = memberships.map((m) => m.channelId);
       if (!ids.length) return c.json({ items: [] });
-      const rows = await db
-        .select()
-        .from(message)
-        .where(and(inArray(message.channelId, ids), eq(message.workspaceId, workspaceId), isNull(message.deletedAt)))
-        .orderBy(desc(message.createdAt))
-        .limit(200);
-      const messages = await hydrateMessages(db, rows);
+      const scope = and(inArray(message.channelId, ids), eq(message.workspaceId, workspaceId), isNull(message.deletedAt));
+      const [rows, replyRows] = await Promise.all([
+        db.select().from(message).where(scope).orderBy(desc(message.createdAt)).limit(200),
+        db
+          .select()
+          .from(message)
+          .where(
+            and(
+              inArray(message.channelId, ids),
+              eq(message.workspaceId, workspaceId),
+              isNull(message.deletedAt),
+              isNotNull(message.parentId),
+            ),
+          )
+          .orderBy(desc(message.createdAt))
+          .limit(100),
+      ]);
+      const rowById = new Map(rows.map((r) => [r.id, r]));
+      for (const row of replyRows) rowById.set(row.id, row);
+      const messages = await hydrateMessages(db, [...rowById.values()]);
+      const byId = new Map(messages.map((m) => [m.id, m]));
+      const parentIds = [
+        ...new Set(messages.map((m) => m.parentId).filter((id): id is string => Boolean(id))),
+      ];
+      const missingParents = parentIds.filter((id) => !byId.has(id));
+      if (missingParents.length) {
+        const parentRows = await db.select().from(message).where(inArray(message.id, missingParents));
+        for (const m of await hydrateMessages(db, parentRows)) byId.set(m.id, m);
+      }
       const chans = await loadWorkspaceChannels(db, workspaceId, userId);
       const chNames = new Map(chans.map((ch) => [ch.id, ch.name]));
       const items = [];
+      const seen = new Set<string>();
       for (const m of messages) {
-        const mentioned = myNames.some((n) => new RegExp(`(^|\\s)@${n}\\b`, "i").test(m.body));
+        const mentioned = extractMentions(m.body, names).includes(userId);
         if (mentioned && m.userId !== userId) {
           items.push({
             id: `mention-${m.id}`,
@@ -418,6 +440,7 @@ export function registerExtraRoutes(authed: Hono<Env>, db: AppDb, hub: Hub) {
             channelName: chNames.get(m.channelId) ?? "",
             message: m,
           });
+          seen.add(`thread-${m.id}`);
         }
         if (m.userId === userId && m.reactions.length) {
           items.push({
@@ -430,15 +453,20 @@ export function registerExtraRoutes(authed: Hono<Env>, db: AppDb, hub: Hub) {
             emoji: m.reactions[0]?.emoji,
           });
         }
-        if (m.replyCount > 0 && m.userId === userId) {
-          items.push({
-            id: `thread-${m.id}`,
-            kind: "thread" as const,
-            at: m.latestReplyAt ?? m.createdAt,
-            channelId: m.channelId,
-            channelName: chNames.get(m.channelId) ?? "",
-            message: m,
-          });
+        if (m.parentId && m.userId !== userId && !seen.has(`thread-${m.id}`)) {
+          const parent = byId.get(m.parentId);
+          const involved = parent?.userId === userId || parent?.replyUserIds.includes(userId);
+          if (involved) {
+            items.push({
+              id: `thread-${m.id}`,
+              kind: "thread" as const,
+              at: m.createdAt,
+              channelId: m.channelId,
+              channelName: chNames.get(m.channelId) ?? "",
+              message: m,
+              actorName: m.userName,
+            });
+          }
         }
       }
       items.sort((a, b) => (a.at < b.at ? 1 : -1));

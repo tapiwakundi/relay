@@ -148,7 +148,7 @@ export function ScreenCanvas({ children }: { children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  bar: { backgroundColor: colors.aubergine },
+  bar: { backgroundColor: colors.hero },
   row: {
     height: 52,
     paddingHorizontal: 14,
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   chev: { color: colors.headerMuted, fontSize: 13, marginTop: 2 },
   right: { flexDirection: "row", alignItems: "center", gap: 10 },
   canvas: { flex: 1, backgroundColor: colors.canvas },
-  hero: { backgroundColor: colors.aubergine },
+  hero: { backgroundColor: colors.hero },
   heroRow: {
     height: 52,
     paddingHorizontal: 14,
@@ -231,7 +231,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 2,
     borderColor: "rgba(255,255,255,0.92)",
-    overflow: "hidden",
   },
   meBtnCompact: {
     borderColor: "#fff",

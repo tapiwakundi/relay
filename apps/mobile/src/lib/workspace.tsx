@@ -66,7 +66,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     if (pending.workspaceId === bootQ.data.workspace.id) return;
     void api(`/api/workspaces/${pending.workspaceId}/select`, { method: "POST" }).then(async () => {
       setActiveWorkspaceId(pending.workspaceId!);
-      queryClient.removeQueries({ queryKey: ["bootstrap"] });
       await queryClient.invalidateQueries({ queryKey: keys.me });
     });
   }, [bootQ.data?.workspace.id, activeAccountId]);
@@ -89,15 +88,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         await api(`/api/workspaces/${nextId}/select`, { method: "POST" });
         setActiveWorkspaceId(nextId);
         sendRealtime({ type: "workspace.select", workspaceId: nextId }, activeAccountId);
-        queryClient.removeQueries({ queryKey: ["bootstrap"] });
-        queryClient.removeQueries({ queryKey: ["messages"] });
         await queryClient.invalidateQueries({ queryKey: keys.me });
       },
     };
   }, [meQ.data, bootQ.data, workspaces, activeAccountId]);
 
   if (!value) {
-    const failed = meQ.isError || bootQ.isError;
+    const failed =
+      (!meQ.data && (meQ.isError || meQ.fetchStatus === "paused")) ||
+      (!bootQ.data && (bootQ.isError || bootQ.fetchStatus === "paused"));
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12, backgroundColor: colors.canvas }}>
         {failed ? (

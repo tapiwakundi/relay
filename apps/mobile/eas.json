@@ -10,13 +10,27 @@
     "preview": {
       "distribution": "internal"
     },
-    "production": {}
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "APP_ENV": "prod"
+      }
+    }
   },
   "submit": {
     "production": {
       "ios": {
         "appleTeamId": "4WUJ6V99Q5",
         "ascAppId": "6814224465"
+      }
+    },
+    "internal-testing": {
+      "android": {
+        "applicationId": "com.endurancelabs.relay",
+        "track": "internal",
+        "releaseStatus": "completed"
       }
     }
   }

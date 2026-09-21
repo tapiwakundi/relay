@@ -14,6 +14,9 @@ apps/desktop/release
 apps/desktop/out
 apps/mobile/ios
 apps/mobile/android
+play-service-account.json
+*.jks
+*.keystore
 *.tsbuildinfo
 .vscode
 .idea

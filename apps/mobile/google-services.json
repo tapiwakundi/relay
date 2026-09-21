@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "737906936170",
+    "project_id": "relay-2b5dc",
+    "storage_bucket": "relay-2b5dc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:737906936170:android:097b1226a3113b13813d13",
+        "android_client_info": {
+          "package_name": "com.endurancelabs.relay"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDZfLG0BeRXUm6CBzdzE8Vpf4jZQu-oLSo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

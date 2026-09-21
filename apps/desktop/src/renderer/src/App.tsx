@@ -29,7 +29,7 @@ import {
   HelpDialog,
   InviteDialog,
   MembersDialog,
-  NewMessageDialog,
+  NewMessagePane,
   WorkspaceSettingsDialog,
 } from "./components/Dialogs";
 import { ProfilePane } from "./components/ProfilePane";
@@ -172,6 +172,7 @@ export function WorkspaceApp() {
   });
 
   function goTo(id: string) {
+    setDialog((d) => (d === "dm" ? null : d));
     setActiveId(id);
     setHomeView("channels");
     setNav((n) => {
@@ -179,6 +180,17 @@ export function WorkspaceApp() {
       const stack = [...n.stack.slice(0, n.idx + 1), id];
       return { stack, idx: stack.length - 1 };
     });
+  }
+
+  function startNewMessage() {
+    setThread(null);
+    setProfile(null);
+    setSwitcher(false);
+    if (dialog === "dm") {
+      document.getElementById("new-msg-to")?.focus();
+      return;
+    }
+    setDialog("dm");
   }
 
   function historyBack() {
@@ -486,7 +498,7 @@ export function WorkspaceApp() {
     await roomRef.current?.localParticipant.setCameraEnabled(next);
   }
 
-  async function openDm(userId: string) {
+  async function openDm(userId: string, body?: string, file?: File) {
     if (!workspace) return;
     const res = await api<{ channel: Channel }>("/api/dms", {
       method: "POST",
@@ -497,6 +509,7 @@ export function WorkspaceApp() {
     setDialog(null);
     setProfile(null);
     setRail("dms");
+    if (body || file) await sendPayload(res.channel.id, body ?? "", file);
   }
 
   async function createChannel(name: string, isPrivate: boolean) {
@@ -790,7 +803,7 @@ export function WorkspaceApp() {
             <button className="sb-icon-btn" title="Workspace settings" onClick={() => setDialog("workspace")}>
               <Settings size={18} />
             </button>
-            <button className="compose-fab" title="New message" onClick={() => setDialog("dm")}>
+            <button className="compose-fab" title="New message" onClick={startNewMessage}>
               <Pencil size={16} />
             </button>
           </div>
@@ -831,8 +844,9 @@ export function WorkspaceApp() {
                     <ChannelRow
                       key={c.id}
                       c={c}
-                      active={c.id === activeId}
+                      active={c.id === activeId && dialog !== "dm"}
                       members={memberMap}
+                      meId={me.id}
                       onClick={() => goTo(c.id)}
                     />
                   ))}
@@ -843,8 +857,9 @@ export function WorkspaceApp() {
                   <ChannelRow
                     key={c.id}
                     c={c}
-                    active={c.id === activeId}
+                    active={c.id === activeId && dialog !== "dm"}
                     members={memberMap}
+                    meId={me.id}
                     onClick={() => goTo(c.id)}
                   />
                 ))}
@@ -858,8 +873,9 @@ export function WorkspaceApp() {
                   <ChannelRow
                     key={c.id}
                     c={c}
-                    active={c.id === activeId}
+                    active={c.id === activeId && dialog !== "dm"}
                     members={memberMap}
+                    meId={me.id}
                     onClick={() => goTo(c.id)}
                   />
                 ))}
@@ -902,8 +918,9 @@ export function WorkspaceApp() {
                 <ChannelRow
                   key={c.id}
                   c={c}
-                  active={c.id === activeId}
+                  active={c.id === activeId && dialog !== "dm"}
                   members={memberMap}
+                  meId={me.id}
                   onClick={() => goTo(c.id)}
                 />
               ))}
@@ -930,7 +947,7 @@ export function WorkspaceApp() {
           )}
           {rail === "dms" && (
             <>
-              <button className="ch-item" onClick={() => setDialog("dm")}>
+              <button className="ch-item" onClick={startNewMessage}>
                 <span className="ch-hash">+</span>
                 <span className="label">New message</span>
               </button>
@@ -938,8 +955,9 @@ export function WorkspaceApp() {
                 <ChannelRow
                   key={c.id}
                   c={c}
-                  active={c.id === activeId}
+                  active={c.id === activeId && dialog !== "dm"}
                   members={memberMap}
+                  meId={me.id}
                   onClick={() => goTo(c.id)}
                 />
               ))}
@@ -1011,7 +1029,20 @@ export function WorkspaceApp() {
       </aside>
 
       <section className="main">
-        {active && (
+        {dialog === "dm" ? (
+          <NewMessagePane
+            members={members}
+            channels={channels}
+            meId={me.id}
+            onPickMember={(userId, body, file) => void openDm(userId, body, file)}
+            onPickChannel={(channelId, body, file) => {
+              const channel = channels.find((c) => c.id === channelId);
+              goTo(channelId);
+              setRail(channel?.isDm ? "dms" : "home");
+              if (body || file) void sendPayload(channelId, body ?? "", file);
+            }}
+          />
+        ) : active ? (
           <>
             <div className="ch-header">
               <div className="ch-title">
@@ -1076,10 +1107,10 @@ export function WorkspaceApp() {
               onSend={(body, file) => void sendPayload(active.id, body, file)}
             />
           </>
-        )}
+        ) : null}
       </section>
 
-      {threadParent && active && !shownProfile && (
+      {threadParent && active && !shownProfile && dialog !== "dm" && (
         <aside className="thread">
           <div className="thread-h">
             <h3>
@@ -1169,14 +1200,6 @@ export function WorkspaceApp() {
       )}
       {dialog === "channel" && (
         <ChannelDialog onCreate={createChannel} onClose={() => setDialog(null)} />
-      )}
-      {dialog === "dm" && (
-        <NewMessageDialog
-          members={members}
-          meId={me.id}
-          onPick={(userId) => void openDm(userId)}
-          onClose={() => setDialog(null)}
-        />
       )}
       {dialog === "help" && <HelpDialog onClose={() => setDialog(null)} />}
       {dialog === "members" && <MembersDialog members={members} onClose={() => setDialog(null)} />}
@@ -1461,23 +1484,44 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+function peerForDm(channel: Channel, members: Map<string, Member>, meId: string) {
+  const people = [...members.values()];
+  const label = channel.dmName ?? channel.name;
+  const first = label.split(",")[0]?.trim();
+  const me = members.get(meId);
+  if (me && (me.displayName === label || me.name === label)) return me;
+  return people.find(
+    (m) =>
+      m.userId !== meId &&
+      (m.displayName === label || m.name === label || m.displayName === first || m.name === first),
+  );
+}
+
 function ChannelRow({
   c,
   active,
   onClick,
   members,
+  meId,
 }: {
   c: Channel;
   active: boolean;
   onClick: () => void;
   members: Map<string, Member>;
+  meId: string;
 }) {
   const unread = c.unreadCount > 0 || c.mentionCount > 0;
   let prefix: React.ReactNode = <span className="ch-hash">#</span>;
   if (c.isPrivate && !c.isDm) prefix = <span className="ch-hash">🔒</span>;
   if (c.isDm) {
-    const other = [...members.values()].find((m) => m.name === c.name || m.displayName === c.name);
-    prefix = <span className={`dm-dot ${other?.presence ?? "offline"}`} />;
+    const other = peerForDm(c, members, meId);
+    const name = other?.displayName || other?.name || c.dmName || c.name;
+    prefix = (
+      <span className="dm-avatar">
+        <Avatar as="span" className="av" name={name} image={other?.image} />
+        <i className={`presence ${other?.presence ?? "offline"}`} />
+      </span>
+    );
   }
   return (
     <button className={`ch-item ${active ? "active" : ""} ${unread ? "unread" : ""}`} onClick={onClick}>

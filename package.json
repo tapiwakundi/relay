@@ -15,7 +15,9 @@
     "release:desktop": "bash scripts/release-desktop.sh",
     "archive": "pnpm --filter @relay/mobile archive",
     "archive:ios": "pnpm --filter @relay/mobile archive:ios",
+    "archive:android": "pnpm --filter @relay/mobile archive:android",
     "prebuild:ios": "pnpm --filter @relay/mobile prebuild:ios",
+    "prebuild:android": "pnpm --filter @relay/mobile prebuild:android",
     "db:generate": "pnpm --filter @relay/api db:generate",
     "db:migrate": "pnpm --filter @relay/api db:migrate"
   },

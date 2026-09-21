@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Channel, InboxInvite, Invite, Member, Workspace } from "@relay/shared";
 import type { UpdateState } from "../../../shared/ipc";
-import { Close, Plus, SearchIcon, UserPlus } from "./Icons";
+import { Avatar } from "./Avatar";
+import { Composer } from "./Composer";
+import { Close, Hash, Lock, Plus, SearchIcon, UserPlus, Users } from "./Icons";
 import { WorkspaceGlyph } from "./WorkspaceGlyph";
 
 export function FormDialog({
@@ -114,33 +116,215 @@ export function ChannelDialog({
   );
 }
 
-export function NewMessageDialog({
+type NewMessageHit =
+  | { kind: "member"; key: string; member: Member; score: number }
+  | { kind: "channel"; key: string; channel: Channel; score: number };
+
+function queryScore(value: string, q: string) {
+  const hay = value.toLowerCase();
+  if (!q) return 2;
+  if (hay === q) return 0;
+  if (hay.startsWith(q)) return 1;
+  if (hay.includes(q)) return 2;
+  return -1;
+}
+
+function newMessageHits(qRaw: string, members: Member[], channels: Channel[], meId: string): NewMessageHit[] {
+  const trimmed = qRaw.trim();
+  const onlyMembers = trimmed.startsWith("@");
+  const onlyChannels = trimmed.startsWith("#");
+  const q = trimmed.replace(/^[@#]/, "").trim().toLowerCase();
+
+  const people: NewMessageHit[] = [];
+  if (!onlyChannels) {
+    for (const member of members) {
+      if (member.userId === meId) continue;
+      const scores = [member.displayName, member.name, member.email]
+        .map((value) => queryScore(value, q))
+        .filter((score) => score >= 0);
+      if (!scores.length) continue;
+      people.push({ kind: "member", key: `m-${member.userId}`, member, score: Math.min(...scores) });
+    }
+    people.sort((a, b) => {
+      if (a.kind !== "member" || b.kind !== "member") return 0;
+      return a.score - b.score || a.member.displayName.localeCompare(b.member.displayName);
+    });
+  }
+
+  const chans: NewMessageHit[] = [];
+  if (!onlyMembers) {
+    for (const channel of channels) {
+      if (channel.isDm) continue;
+      const score = queryScore(channel.name, q);
+      if (score < 0) continue;
+      chans.push({ kind: "channel", key: `c-${channel.id}`, channel, score });
+    }
+    chans.sort((a, b) => {
+      if (a.kind !== "channel" || b.kind !== "channel") return 0;
+      return a.score - b.score || a.channel.name.localeCompare(b.channel.name);
+    });
+  }
+
+  return [...people, ...chans].slice(0, 40);
+}
+
+function presenceLabel(member: Member) {
+  if (member.statusText) return member.statusText;
+  if (member.presence === "active") return "Active";
+  if (member.presence === "dnd") return "Do not disturb";
+  return member.presence[0].toUpperCase() + member.presence.slice(1);
+}
+
+export function NewMessagePane({
   members,
+  channels,
   meId,
-  onPick,
-  onClose,
+  onPickMember,
+  onPickChannel,
 }: {
   members: Member[];
+  channels: Channel[];
   meId: string;
-  onPick: (userId: string) => void;
-  onClose: () => void;
+  onPickMember: (userId: string, body?: string, file?: File) => void;
+  onPickChannel: (channelId: string, body?: string, file?: File) => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const [q, setQ] = useState("");
-  const list = members.filter(
-    (m) => m.userId !== meId && m.displayName.toLowerCase().includes(q.toLowerCase()),
-  );
+  const [idx, setIdx] = useState(0);
+  const hits = useMemo(() => newMessageHits(q, members, channels, meId), [q, members, channels, meId]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => inputRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    setIdx(0);
+  }, [q]);
+
+  useEffect(() => {
+    setIdx((current) => Math.min(current, Math.max(0, hits.length - 1)));
+  }, [hits.length]);
+
+  useEffect(() => {
+    const selected = listRef.current?.querySelector("[aria-selected='true']");
+    selected?.scrollIntoView({ block: "nearest" });
+  }, [idx]);
+
+  function pick(index = idx, body?: string, file?: File) {
+    const hit = hits[index];
+    if (!hit) return;
+    if (hit.kind === "member") onPickMember(hit.member.userId, body, file);
+    else onPickChannel(hit.channel.id, body, file);
+  }
+
   return (
-    <FormDialog title="New message" onClose={onClose}>
-      <input placeholder="Search teammates" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
-      <div className="switcher-list">
-        {list.map((m) => (
-          <button key={m.userId} className="switcher-row" onClick={() => onPick(m.userId)}>
-            {m.displayName}
-            {m.title ? ` · ${m.title}` : ""}
-          </button>
-        ))}
+    <div className="new-msg-pane">
+      <div className="ch-header">
+        <div className="ch-title">New message</div>
       </div>
-    </FormDialog>
+      <div className="new-msg-to">
+        <label htmlFor="new-msg-to">To:</label>
+        <input
+          id="new-msg-to"
+          ref={inputRef}
+          autoFocus
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={hits.length > 0}
+          aria-controls="new-msg-suggest"
+          aria-activedescendant={hits[idx] ? `new-msg-${hits[idx].key}` : undefined}
+          placeholder="#a-channel, @somebody, or somebody@example.com"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setIdx((i) => Math.min(hits.length - 1, i + 1));
+            }
+            if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setIdx((i) => Math.max(0, i - 1));
+            }
+            if (e.key === "Enter") {
+              e.preventDefault();
+              pick();
+            }
+          }}
+        />
+      </div>
+      <div className="new-msg-suggest" id="new-msg-suggest" ref={listRef} role="listbox" aria-label="People and channels">
+        {hits.map((hit, index) => {
+          const selected = index === idx;
+          if (hit.kind === "member") {
+            const member = hit.member;
+            return (
+              <button
+                key={hit.key}
+                id={`new-msg-${hit.key}`}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                className={`mention-option ${selected ? "selected" : ""}`}
+                onMouseEnter={() => setIdx(index)}
+                onClick={() => pick(index)}
+              >
+                <Avatar as="span" className="mention-avatar" name={member.displayName} image={member.image}>
+                  <i className={`mention-presence ${member.presence}`} />
+                </Avatar>
+                <span className="mention-person">
+                  <span className="mention-name">
+                    {member.displayName}
+                    {member.statusEmoji ? ` ${member.statusEmoji}` : ""}
+                  </span>
+                  {member.title ? <span className="mention-title">{member.title}</span> : null}
+                </span>
+                <span className="mention-trailing">
+                  <span>{presenceLabel(member)}</span>
+                  {selected ? <kbd>Enter</kbd> : null}
+                </span>
+              </button>
+            );
+          }
+          const channel = hit.channel;
+          return (
+            <button
+              key={hit.key}
+              id={`new-msg-${hit.key}`}
+              type="button"
+              role="option"
+              aria-selected={selected}
+              className={`mention-option ${selected ? "selected" : ""}`}
+              onMouseEnter={() => setIdx(index)}
+              onClick={() => pick(index)}
+            >
+              <span className="new-msg-glyph">
+                {channel.isMpim ? <Users size={18} /> : channel.isPrivate ? <Lock size={18} /> : <Hash size={18} />}
+              </span>
+              <span className="mention-person">
+                <span className="mention-name">{channel.name}</span>
+                <span className="mention-title">{channel.isMpim ? "Group message" : channel.isPrivate ? "Private channel" : "Channel"}</span>
+              </span>
+              <span className="mention-trailing">{selected ? <kbd>Enter</kbd> : null}</span>
+            </button>
+          );
+        })}
+        {!hits.length ? <div className="new-msg-empty">No matching people or channels.</div> : null}
+      </div>
+      <Composer
+        placeholder="Start a new message"
+        members={members}
+        onTyping={() => {}}
+        onSend={(body, file) => {
+          if (!hits[idx]) {
+            inputRef.current?.focus();
+            return;
+          }
+          pick(idx, body, file);
+        }}
+      />
+    </div>
   );
 }
 

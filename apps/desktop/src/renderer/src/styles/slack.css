@@ -667,24 +667,42 @@ button {
   display: grid;
   place-items: center;
 }
-.dm-dot {
+.dm-avatar {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  overflow: visible;
+}
+.dm-avatar .av {
+  width: 20px;
+  height: 20px;
+  font-size: 9px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.dm-avatar .presence {
+  right: -3px;
+  bottom: -3px;
   width: 10px;
   height: 10px;
-  border-radius: 50%;
-  background: var(--presence);
-  margin-left: 4px;
-  flex-shrink: 0;
+  border-color: var(--aubergine);
 }
-.dm-dot.away {
+.dm-avatar .presence.away,
+.dm-avatar .presence.offline {
   background: transparent;
-  box-shadow: inset 0 0 0 2px #e8a427;
 }
-.dm-dot.offline {
-  background: transparent;
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+.dm-avatar .presence.away {
+  box-shadow: inset 0 0 0 2px var(--presence-away);
 }
-.dm-dot.dnd {
-  background: var(--presence-dnd);
+.dm-avatar .presence.offline {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.45);
+}
+.ch-item.active .dm-avatar .presence {
+  border-color: var(--blue-select);
+}
+.ch-item:hover:not(.active) .dm-avatar .presence {
+  border-color: color-mix(in srgb, var(--aubergine) 92%, white);
 }
 
 .huddle-dock {
@@ -776,6 +794,64 @@ button {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
+}
+.new-msg-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.new-msg-to {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 49px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.new-msg-to label {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+}
+.new-msg-to input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+}
+.new-msg-to input::placeholder {
+  color: var(--text-3);
+}
+.new-msg-suggest {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 12px 12px;
+}
+.new-msg-suggest .mention-option {
+  min-height: 48px;
+}
+.new-msg-glyph {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 8px;
+  color: var(--text-2);
+  display: grid;
+  place-items: center;
+}
+.new-msg-empty {
+  color: var(--text-2);
+  font-size: 14px;
+  padding: 16px 10px;
+}
+.new-msg-pane .composer-wrap {
+  flex-shrink: 0;
 }
 .with-thread .ch-title .meta {
   display: none;
@@ -1322,6 +1398,10 @@ button {
 .presence.dnd {
   background: var(--presence-dnd);
 }
+.presence.offline {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.45);
+}
 
 .menu {
   position: absolute;
@@ -1501,6 +1581,7 @@ code {
   justify-content: center;
   font-size: 12px;
   font-weight: 800;
+  overflow: visible;
 }
 .mention-avatar img {
   width: 100%;

@@ -13,6 +13,16 @@ function run(command, args, cwd = getAppRoot(), options = {}) {
   }
 }
 
+function runReturningStatus(command, args, cwd = getAppRoot()) {
+  const result = spawnSync(command, args, {
+    stdio: "inherit",
+    cwd,
+    env: process.env,
+  });
+  return result.status ?? 1;
+}
+
 module.exports = {
   run,
+  runReturningStatus,
 };

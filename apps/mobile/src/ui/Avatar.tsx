@@ -21,28 +21,31 @@ export function Avatar({
 }) {
   const [broken, setBroken] = useState(false);
   const show = Boolean(image && !broken);
+  const radius = round ? size / 2 : size * 0.28;
   const inner = (
-    <View
-      style={[
-        styles.wrap,
-        {
-          width: size,
-          height: size,
-          borderRadius: round ? size / 2 : size * 0.28,
-          backgroundColor: show ? "transparent" : hue(name),
-        },
-      ]}
-    >
-      {show ? (
-        <Image
-          source={{ uri: image! }}
-          style={{ width: size, height: size, borderRadius: round ? size / 2 : 0 }}
-          contentFit="cover"
-          onError={() => setBroken(true)}
-        />
-      ) : (
-        <Text style={[styles.initials, { fontSize: size * 0.38 }]}>{initials(name)}</Text>
-      )}
+    <View style={[styles.wrap, { width: size, height: size }]}>
+      <View
+        style={[
+          styles.face,
+          {
+            width: size,
+            height: size,
+            borderRadius: radius,
+            backgroundColor: show ? "transparent" : hue(name),
+          },
+        ]}
+      >
+        {show ? (
+          <Image
+            source={{ uri: image! }}
+            style={{ width: size, height: size, borderRadius: radius }}
+            contentFit="cover"
+            onError={() => setBroken(true)}
+          />
+        ) : (
+          <Text style={[styles.initials, { fontSize: size * 0.38 }]}>{initials(name)}</Text>
+        )}
+      </View>
       {presence ? (
         <View
           style={[
@@ -59,7 +62,7 @@ export function Avatar({
   );
   if (onPress) {
     return (
-      <Pressable onPress={onPress} hitSlop={8}>
+      <Pressable onPress={onPress} hitSlop={8} style={styles.hit}>
         {inner}
       </Pressable>
     );
@@ -68,7 +71,9 @@ export function Avatar({
 }
 
 const styles = StyleSheet.create({
-  wrap: { overflow: "hidden", alignItems: "center", justifyContent: "center" },
+  wrap: { overflow: "visible" },
+  hit: { overflow: "visible" },
+  face: { overflow: "hidden", alignItems: "center", justifyContent: "center" },
   initials: { color: "#fff", fontWeight: "800" },
   dot: {
     position: "absolute",
@@ -76,6 +81,6 @@ const styles = StyleSheet.create({
     bottom: -1,
     borderRadius: 99,
     borderWidth: 2,
-              borderColor: "#fff",
+    borderColor: "#fff",
   },
 });

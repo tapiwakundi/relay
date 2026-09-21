@@ -257,9 +257,9 @@ const styles = StyleSheet.create({
     minHeight: 96,
   },
   fallback: {
-    backgroundColor: "rgba(255,255,255,0.62)",
+    backgroundColor: "rgba(255,255,255,0.92)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(0,0,0,0.06)",
+    borderColor: "rgba(0,0,0,0.04)",
   },
   idleRow: {
     flexDirection: "row",
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "rgba(60,60,67,0.08)",
+    backgroundColor: "rgba(60,60,67,0.04)",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 4,

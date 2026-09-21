@@ -15,7 +15,7 @@ import {
   signOut,
   signOutClient,
 } from "./auth";
-import { queryClient } from "./query";
+import { attachQueryPersistence, detachQueryPersistence, dropQueryPersistence } from "./query-persist";
 import { reconnectAccountSockets, addRealtimeListener, sendRealtime, syncAccountSockets } from "./realtime-hub";
 import { onAccountExpired } from "./session";
 
@@ -139,9 +139,11 @@ export function AccountManager({ children }: { children: ReactNode }) {
   const switchAccount = useCallback(
     async (id: string) => {
       if (id === activeAccountId) return;
-      queryClient.clear();
+      setReady(false);
+      await attachQueryPersistence(id);
       await accountVault.setActive(id);
       await publish();
+      setReady(true);
     },
     [activeAccountId, publish],
   );
@@ -153,9 +155,13 @@ export function AccountManager({ children }: { children: ReactNode }) {
       if (target === activeAccountId) await signOut();
       await unregisterPush(target);
       const next = await accountVault.remove(target);
-      queryClient.clear();
+      setReady(false);
+      await dropQueryPersistence(target);
+      if (next) await attachQueryPersistence(next);
+      else await detachQueryPersistence();
       setActiveAccountId(next);
       await publish();
+      setReady(true);
     },
     [activeAccountId, publish],
   );
@@ -172,22 +178,22 @@ export function AccountManager({ children }: { children: ReactNode }) {
     const existing = (await accountVault.list()).some((account) => account.id === creds.id);
     if (adding && existing) {
       await signOutClient(pendingAuthClient).catch(() => null);
-      setAdding(false);
-      setAddingAccount(false);
-      queryClient.clear();
+      await attachQueryPersistence(creds.id);
       await accountVault.setActive(creds.id);
       await publish();
+      setAdding(false);
+      setAddingAccount(false);
       return { duplicate: true };
     }
     await accountVault.upsert(creds);
     await accountVault.setActive(creds.id);
     if (adding) await signOutClient(pendingAuthClient).catch(() => null);
-    setAdding(false);
-    setAddingAccount(false);
-    queryClient.clear();
+    await attachQueryPersistence(creds.id);
     await registerPush(creds.id);
     await refreshOne(creds.id);
     await publish();
+    setAdding(false);
+    setAddingAccount(false);
     return { duplicate: existing };
   }, [adding, publish]);
 
@@ -205,19 +211,21 @@ export function AccountManager({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancel = false;
     void (async () => {
-      const index = await accountVault.snapshot();
+      let index = await accountVault.snapshot();
       if (cancel) return;
-      await publish();
-      if (!cancel) setReady(true);
       if (!Object.keys(index.accounts).length) {
         try {
           await accountVault.migrateIfEmpty(await extractCredentials());
-          if (!cancel) await publish();
+          index = await accountVault.snapshot();
         } catch {
           /* getSession can fail offline; login still works */
         }
       }
+      if (index.activeAccountId) await attachQueryPersistence(index.activeAccountId);
+      else await detachQueryPersistence();
       if (cancel) return;
+      await publish();
+      if (!cancel) setReady(true);
       const ids = (await accountVault.list()).map((account) => account.id);
       await Promise.all(ids.map((id) => registerPush(id)));
       await refreshAccounts();
