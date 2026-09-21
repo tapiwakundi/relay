@@ -91,6 +91,67 @@ export async function notifyUnreadPush(
   }
   if (!messages.length) return { sent: 0, removed: [] as string[] };
 
+  return deliverExpoPushes(db, messages, send);
+}
+
+type ExpoPushMessage = {
+  to: string;
+  title: string;
+  body: string;
+  sound: "default";
+  interruptionLevel: "active" | "time-sensitive";
+  priority?: "high";
+  channelId?: string;
+  categoryId?: string;
+  _displayInForeground: true;
+  data: PushNotificationData;
+};
+
+/** Ring every registered phone for these people. Websocket presence is ignored so a closed app still gets the call. */
+export async function notifyHuddleCall(
+  db: AppDb,
+  opts: {
+    callerName: string;
+    workspaceId: string;
+    channelId: string;
+    huddleId: string;
+    place: string;
+    recipientIds: string[];
+  },
+  send: PushSender = fetch,
+) {
+  const recipientIds = [...new Set(opts.recipientIds.filter(Boolean))];
+  if (!recipientIds.length) return { sent: 0, removed: [] as string[] };
+
+  const rows = await db.select().from(deviceToken).where(inArray(deviceToken.userId, recipientIds));
+  if (!rows.length) return { sent: 0, removed: [] as string[] };
+
+  const caller = opts.callerName.trim() || "Someone";
+  const messages: ExpoPushMessage[] = rows.map((row) => ({
+    to: row.token,
+    title: `${caller} is calling`,
+    body: `Huddle in ${opts.place}`,
+    sound: "default",
+    priority: "high",
+    interruptionLevel: "time-sensitive",
+    channelId: "calls",
+    categoryId: "huddle",
+    _displayInForeground: true,
+    data: {
+      kind: "huddle",
+      accountId: row.userId,
+      workspaceId: opts.workspaceId,
+      channelId: opts.channelId,
+      huddleId: opts.huddleId,
+      callerName: caller,
+    },
+  }));
+  return deliverExpoPushes(db, messages, send);
+}
+
+async function deliverExpoPushes(db: AppDb, messages: ExpoPushMessage[], send: PushSender) {
+  if (!messages.length) return { sent: 0, removed: [] as string[] };
+
   const invalid = new Set<string>();
   const ticketToToken = new Map<string, string>();
   for (let i = 0; i < messages.length; i += BATCH) {

@@ -68,7 +68,13 @@ export function HomeScreen() {
             icon={<IconHeadphones color={colors.aubergine} size={26} />}
             label="Huddles"
             sub={`${liveHuddles.length} live`}
-            onPress={() => liveHuddles[0] && nav.navigate("Channel", { channelId: liveHuddles[0].id })}
+            onPress={() => {
+              const live = liveHuddles[0];
+              if (!live) return;
+              const joined = live.huddle?.participants.some((person) => person.userId === me.id);
+              nav.navigate("Channel", { channelId: live.id });
+              if (joined) nav.navigate("Huddle", { channelId: live.id });
+            }}
           />
           <Shortcut
             icon={<IconBookmark color={colors.aubergine} size={26} />}

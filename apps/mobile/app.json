@@ -34,6 +34,7 @@
         ],
         "NSPhotoLibraryUsageDescription": "Relay uses your photos for profile pictures and workspace icons.",
         "NSCameraUsageDescription": "Relay uses the camera so you can take a profile photo.",
+        "NSMicrophoneUsageDescription": "Relay uses the microphone so you can talk in huddles.",
         "NSLocalNetworkUsageDescription": "Relay uses the local network to reach your computer while developing.",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
@@ -72,6 +73,8 @@
         }
       ],
       "expo-secure-store",
+      "@livekit/react-native-expo-plugin",
+      "@config-plugins/react-native-webrtc",
       "expo-web-browser",
       [
         "expo-image-picker",

@@ -86,6 +86,8 @@ export async function currentPushToken() {
         lightColor: "#1A5FB4",
       });
     }
+    const { ensureCallNotifications } = await import("./huddle-call");
+    await ensureCallNotifications();
     const existing = await Notifications.getPermissionsAsync();
     let status = existing.status;
     if (status !== "granted") {

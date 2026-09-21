@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import type { Channel } from "@relay/shared";
-import { api } from "../lib/auth";
+import { joinHuddleCall } from "../lib/huddle-call";
 import { useWorkspace } from "../lib/workspace";
 import type { RootStackParamList } from "../nav/types";
 import { Glass } from "./Glass";
@@ -106,10 +106,11 @@ export function ComposeMenu() {
     setBusyId(channelId);
     setError(null);
     try {
-      await api(`/api/channels/${channelId}/huddle/join`, { method: "POST" });
+      await joinHuddleCall(channelId);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       close();
       nav.navigate("Channel", { channelId });
+      nav.navigate("Huddle", { channelId });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn’t start the huddle");
     } finally {

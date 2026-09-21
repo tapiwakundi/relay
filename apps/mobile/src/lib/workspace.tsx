@@ -21,13 +21,16 @@ import { addRealtimeListener, sendRealtime } from "./realtime-hub";
 import { colors } from "../ui/theme";
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    const call = (notification.request.content.data as { kind?: string } | undefined)?.kind === "huddle";
+    return {
+      shouldShowAlert: !call,
+      shouldPlaySound: true,
+      shouldSetBadge: !call,
+      shouldShowBanner: !call,
+      shouldShowList: true,
+    };
+  },
 });
 
 type Ctx = {

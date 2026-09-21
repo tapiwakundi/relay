@@ -1,6 +1,7 @@
 export type RootStackParamList = {
   Tabs: undefined;
   Channel: { channelId: string };
+  Huddle: { channelId: string };
   Thread: { channelId: string; parentId: string };
   Profile: { userId: string };
   WorkspaceSettings: undefined;

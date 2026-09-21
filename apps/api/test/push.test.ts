@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "@relay/shared";
 import { Hub, type UnreadBump } from "../src/hub.js";
-import { notifyUnreadPush } from "../src/push.js";
+import { notifyHuddleCall, notifyUnreadPush } from "../src/push.js";
 
 const message: ChatMessage = {
   id: "m1",
@@ -143,5 +143,56 @@ describe("multi-account push delivery", () => {
     expect(result.sent).toBe(1);
     expect(result.removed).toEqual(["ExponentPushToken[dead]"]);
     expect(deleted).toHaveLength(1);
+  });
+
+  it("rings registered devices even when the recipient has no websocket", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: async () => [{ userId: "bob", token: "ExponentPushToken[bob]" }],
+        }),
+      }),
+    };
+    const send = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).includes("push/send")) {
+        const body = JSON.parse(String(init?.body)) as { to: string }[];
+        return {
+          ok: true,
+          json: async () => ({ data: body.map(() => ({ status: "ok", id: "call" })) }),
+        };
+      }
+      return { ok: true, json: async () => ({ data: {} }) };
+    });
+
+    const result = await notifyHuddleCall(
+      db as never,
+      {
+        callerName: "Ada",
+        workspaceId: "ws-1",
+        channelId: "ch-1",
+        huddleId: "h-1",
+        place: "a direct message",
+        recipientIds: ["bob"],
+      },
+      send as never,
+    );
+
+    expect(result.sent).toBe(1);
+    const payload = JSON.parse(String((send.mock.calls[0]?.[1] as RequestInit).body)) as {
+      to: string;
+      title: string;
+      priority: string;
+      channelId: string;
+      categoryId: string;
+      data: { kind: string; accountId: string; huddleId: string };
+    }[];
+    expect(payload[0]).toMatchObject({
+      to: "ExponentPushToken[bob]",
+      title: "Ada is calling",
+      priority: "high",
+      channelId: "calls",
+      categoryId: "huddle",
+      data: { kind: "huddle", accountId: "bob", huddleId: "h-1" },
+    });
   });
 });

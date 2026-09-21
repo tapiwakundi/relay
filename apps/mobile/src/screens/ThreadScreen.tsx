@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { Alert } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ChatMessage } from "@relay/shared";
 import { api } from "../lib/auth";
+import { joinHuddleCall } from "../lib/huddle-call";
 import { keys } from "../lib/query";
 import { useWorkspace } from "../lib/workspace";
 import { ChatView } from "../ui/ChatView";
@@ -36,7 +38,10 @@ export function ThreadScreen({ navigation, route }: Props) {
     if (!channel) return;
     setBusy(true);
     try {
-      await api(`/api/channels/${channel.id}/huddle/${inHuddle ? "leave" : "join"}`, { method: "POST" });
+      if (!inHuddle) await joinHuddleCall(channel.id);
+      navigation.navigate("Huddle", { channelId: channel.id });
+    } catch (err) {
+      Alert.alert("Couldn't join the huddle", err instanceof Error ? err.message : "Try again.");
     } finally {
       setBusy(false);
     }

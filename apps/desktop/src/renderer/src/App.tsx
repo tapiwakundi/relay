@@ -467,6 +467,7 @@ export function WorkspaceApp() {
       const room = new Room();
       room.on(RoomEvent.Disconnected, () => setInHuddle(false));
       await room.connect(res.livekit.url, res.livekit.token);
+      await room.startAudio().catch(() => undefined);
       await room.localParticipant.setMicrophoneEnabled(!muted);
       roomRef.current = room;
     }

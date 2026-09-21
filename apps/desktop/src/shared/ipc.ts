@@ -25,6 +25,7 @@ export const relayChannels = {
   invite: "relay:invite",
   pendingInvites: "relay:pending-invites",
   prepareMedia: "relay:prepare-media",
+  lookupHost: "relay:lookup-host",
   showEmojiPanel: "relay:show-emoji-panel",
   listAccounts: "relay:accounts-list",
   switchAccount: "relay:accounts-switch",
@@ -151,6 +152,7 @@ export interface RelayDesktop {
   onInvite(callback: (token: string) => void): () => void;
   pendingInvites(): Promise<string[]>;
   prepareMedia(): Promise<MediaAccess>;
+  lookupHost(host: string): string | null;
   showEmojiPanel(): Promise<void>;
   getUpdateState(): Promise<UpdateState>;
   checkForUpdates(): Promise<UpdateState>;

@@ -246,6 +246,9 @@ export type PushNotificationData = {
   workspaceId: string;
   channelId: string;
   messageId?: string;
+  kind?: "message" | "huddle";
+  huddleId?: string;
+  callerName?: string;
 };
 
 export type AccountNavigation = {

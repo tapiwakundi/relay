@@ -6,13 +6,25 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import * as Notifications from "expo-notifications";
 import type { PushNotificationData } from "@relay/shared";
 import { useAccounts } from "../lib/account-manager";
-import { navFromPush, openPendingIfReady, setPendingChannelOpener, setPendingNav } from "../lib/pending-nav";
+import { answerHuddle } from "../lib/huddle-call";
+import {
+  navFromPush,
+  openHuddleScreen,
+  openPendingIfReady,
+  pushFields,
+  setHuddleScreenOpener,
+  setPendingChannelOpener,
+  setPendingHuddleAnswerer,
+  setPendingNav,
+} from "../lib/pending-nav";
+import { IncomingHuddle, handleHuddleNotificationResponse } from "../ui/IncomingHuddle";
 import { useWorkspace } from "../lib/workspace";
 import { GlassTabBar } from "./GlassTabBar";
 import { ComposeMenu } from "../ui/ComposeMenu";
 import { colors } from "../ui/theme";
 import { ActivityScreen } from "../screens/ActivityScreen";
 import { ChannelScreen } from "../screens/ChannelScreen";
+import { HuddleScreen } from "../screens/HuddleScreen";
 import { DmsScreen } from "../screens/DmsScreen";
 import { EditProfileScreen } from "../screens/EditProfileScreen";
 import { HomeScreen } from "../screens/HomeScreen";
@@ -61,19 +73,64 @@ function openChannel(channelId: string) {
   if (navigationRef.isReady()) navigationRef.navigate("Channel", { channelId });
 }
 
+function showHuddleScreen(channelId: string) {
+  if (!navigationRef.isReady()) return;
+  navigationRef.reset({
+    index: 2,
+    routes: [
+      { name: "Tabs" },
+      { name: "Channel", params: { channelId } },
+      { name: "Huddle", params: { channelId } },
+    ],
+  });
+}
+
+function closeHuddleIfMissed(res: { huddle: unknown } | null) {
+  if (res?.huddle) return;
+  if (navigationRef.isReady() && navigationRef.getCurrentRoute()?.name === "Huddle") navigationRef.goBack();
+}
+
 export function RootNav() {
   const { switchAccount, activeAccountId } = useAccounts();
-  const { workspace } = useWorkspace();
+  const { workspace, selectWorkspace } = useWorkspace();
 
   useEffect(() => {
     setPendingChannelOpener((channelId) => openChannel(channelId));
+    setHuddleScreenOpener(showHuddleScreen);
+    setPendingHuddleAnswerer((channelId) => {
+      openHuddleScreen(channelId);
+      void answerHuddle(channelId).then(closeHuddleIfMissed);
+    });
     openPendingIfReady(activeAccountId, workspace.id);
-    return () => setPendingChannelOpener(null);
+    return () => {
+      setPendingChannelOpener(null);
+      setHuddleScreenOpener(null);
+      setPendingHuddleAnswerer(null);
+    };
   }, [activeAccountId, workspace.id]);
 
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as PushNotificationData;
+    function onResponse(response: Notifications.NotificationResponse) {
+      const outcome = handleHuddleNotificationResponse(response);
+      if (!outcome || outcome === "declined") return;
+      const data = pushFields(response.notification.request.content.data) as PushNotificationData;
+      if (outcome === "answer" && data.channelId) {
+        const nav = navFromPush(data, activeAccountId);
+        if (!nav) return;
+        if (nav.switchAccount) {
+          setPendingNav(data);
+          void switchAccount(nav.accountId);
+          return;
+        }
+        if (data.workspaceId && data.workspaceId !== workspace.id) {
+          setPendingNav(data);
+          void selectWorkspace(data.workspaceId);
+          return;
+        }
+        openHuddleScreen(data.channelId);
+        void answerHuddle(data.channelId).then(closeHuddleIfMissed);
+        return;
+      }
       const nav = navFromPush(data, activeAccountId);
       if (!nav) return;
       setPendingNav(data);
@@ -82,12 +139,21 @@ export function RootNav() {
         return;
       }
       openPendingIfReady(activeAccountId, workspace.id);
+    }
+    const sub = Notifications.addNotificationResponseReceivedListener(onResponse);
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (!response) return;
+      const raw = response.notification.date ?? 0;
+      const at = raw < 10_000_000_000 ? raw * 1000 : raw;
+      if (!at || Date.now() - at > 2 * 60 * 1000) return;
+      onResponse(response);
     });
     return () => sub.remove();
-  }, [activeAccountId, switchAccount, workspace.id]);
+  }, [activeAccountId, selectWorkspace, switchAccount, workspace.id]);
 
   return (
-    <NavigationContainer ref={navigationRef} theme={theme}>
+    <>
+      <NavigationContainer ref={navigationRef} theme={theme}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -97,6 +163,11 @@ export function RootNav() {
       >
         <Stack.Screen name="Tabs" component={TabNav} />
         <Stack.Screen name="Channel" component={ChannelScreen} />
+        <Stack.Screen
+          name="Huddle"
+          component={HuddleScreen}
+          options={{ animation: "slide_from_bottom", gestureDirection: "vertical" }}
+        />
         <Stack.Screen name="Thread" component={ThreadScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="WorkspaceSettings" component={WorkspaceSettingsScreen} />
@@ -146,5 +217,7 @@ export function RootNav() {
         />
       </Stack.Navigator>
     </NavigationContainer>
+    <IncomingHuddle />
+    </>
   );
 }

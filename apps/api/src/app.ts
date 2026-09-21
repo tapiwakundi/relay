@@ -15,7 +15,7 @@ import type { Auth } from "./better-auth.js";
 import { message, reaction, user, workspace, workspaceMember } from "./db/schema.js";
 import { listPendingInvitesForEmail, registerDeviceToken, unregisterDeviceToken } from "./domain.js";
 import { handle, routeParam } from "./errors.js";
-import { joinHuddle, leaveHuddle } from "./huddle.js";
+import { joinHuddle, leaveHuddle, setHuddleMuted } from "./huddle.js";
 import { type Hub } from "./hub.js";
 import { provisionAuthedUser } from "./provision.js";
 import {
@@ -251,10 +251,31 @@ export function createApp(opts: { db: AppDb; hub: Hub; auth: Auth }) {
   authed.post(
     "/channels/:id/huddle/join",
     handle(async (c) => {
+      let create = true;
+      try {
+        const body = await c.req.json<{ create?: boolean }>();
+        if (body?.create === false) create = false;
+      } catch {
+        create = true;
+      }
       const result = await joinHuddle(db, hub, {
         channelId: routeParam(c, "id"),
         userId: c.get("userId"),
         userName: c.get("userName"),
+        create,
+      });
+      return c.json(result);
+    }),
+  );
+
+  authed.post(
+    "/channels/:id/huddle/mute",
+    handle(async (c) => {
+      const { muted } = await c.req.json<{ muted?: boolean }>();
+      const result = await setHuddleMuted(db, hub, {
+        channelId: routeParam(c, "id"),
+        userId: c.get("userId"),
+        muted: Boolean(muted),
       });
       return c.json(result);
     }),

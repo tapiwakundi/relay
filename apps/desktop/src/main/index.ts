@@ -22,6 +22,7 @@ import { installNotifications, setActiveChannel, setBadge } from "./notification
 import { closeRealtime, openRealtime, sendRealtime } from "./realtime";
 import { installApplicationMenu } from "./menu";
 import { promptCheckForUpdates, installAutoUpdater } from "./updater";
+import { lookupHostSync } from "./lookup-host";
 import { getMainWindow, setMainWindow } from "./window";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -57,6 +58,9 @@ function beginAddIfRequested(add?: boolean) {
   return !already;
 }
 
+ipcMain.on(relayChannels.lookupHost, (event, host: unknown) => {
+  event.returnValue = typeof host === "string" ? lookupHostSync(host) : null;
+});
 ipcMain.handle(relayChannels.api, (_event, request: ApiRequest) => proxyApi(request));
 ipcMain.handle(relayChannels.signInEmail, async (_event, email: unknown, password: unknown, options?: AuthMode) => {
   if (typeof email !== "string" || typeof password !== "string") {

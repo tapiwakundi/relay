@@ -62,6 +62,8 @@ const relayDesktop = {
   onInvite: (callback: (token: string) => void) => subscribe(relayChannels.invite, callback),
   pendingInvites: () => ipcRenderer.invoke(relayChannels.pendingInvites) as Promise<string[]>,
   prepareMedia: () => ipcRenderer.invoke(relayChannels.prepareMedia) as Promise<MediaAccess>,
+  lookupHost: (host: string) =>
+    (typeof host === "string" ? ipcRenderer.sendSync(relayChannels.lookupHost, host) : null) as string | null,
   showEmojiPanel: () => ipcRenderer.invoke(relayChannels.showEmojiPanel) as Promise<void>,
   getUpdateState: () => ipcRenderer.invoke(relayChannels.getUpdateState) as Promise<UpdateState>,
   checkForUpdates: () => ipcRenderer.invoke(relayChannels.checkForUpdates) as Promise<UpdateState>,

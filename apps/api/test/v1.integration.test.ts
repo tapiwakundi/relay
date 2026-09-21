@@ -178,6 +178,17 @@ describe.skipIf(!process.env.DATABASE_URL)("v1 api integration", () => {
     const open = await db.select().from(huddle).where(eq(huddle.channelId, general.id));
     expect(open.filter((h) => !h.endedAt)).toHaveLength(1);
 
+    const muted = await api("alice", `/api/channels/${general.id}/huddle/mute`, {
+      method: "POST",
+      body: JSON.stringify({ muted: true }),
+    });
+    expect(muted.status).toBe(200);
+    const mutedBody = await muted.json();
+    const aliceInCall = mutedBody.huddle.participants.find((p: { userId: string }) => p.userId === alice.id);
+    const bobInCall = mutedBody.huddle.participants.find((p: { userId: string }) => p.userId === bob.id);
+    expect(aliceInCall.muted).toBe(true);
+    expect(bobInCall.muted).toBe(false);
+
     const aliceTok = await api("alice", "/api/device-tokens", {
       method: "POST",
       body: JSON.stringify({ token: `tok-${suffix}`, platform: "ios" }),

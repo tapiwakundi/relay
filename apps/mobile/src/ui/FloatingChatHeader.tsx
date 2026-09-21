@@ -82,7 +82,7 @@ export function FloatingChatHeader({
         <GlassChip
           style={styles.circle}
           onPress={huddleBusy ? undefined : onHuddle}
-          accessibilityLabel={huddleJoined ? "Leave huddle" : "Join huddle"}
+          accessibilityLabel={huddleJoined ? "Open huddle" : "Start huddle"}
           liquid={liquid}
         >
           <IconHeadphones size={22} filled={huddleJoined} color={huddleJoined ? colors.green : colors.ink} />
