@@ -58,15 +58,22 @@ export function ChatView({
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [focusNonce, setFocusNonce] = useState(0);
 
+  function scrollToLatest(animated: boolean) {
+    requestAnimationFrame(() => list.current?.scrollToEnd({ animated }));
+  }
+
   useEffect(() => {
     const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => {
       setKeyboardOpen(true);
+      scrollToLatest(true);
     });
+    const shown = Platform.OS === "ios" ? Keyboard.addListener("keyboardDidShow", () => scrollToLatest(false)) : null;
     const hide = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => {
       setKeyboardOpen(false);
     });
     return () => {
       show.remove();
+      shown?.remove();
       hide.remove();
     };
   }, []);
@@ -202,6 +209,10 @@ export function ChatView({
   const memberMap = useMemo(() => new Map(members.map((m) => [m.userId, m])), [members]);
   const [composerH, setComposerH] = useState(72);
 
+  useEffect(() => {
+    scrollToLatest(false);
+  }, [composerH, channel.id, parentId]);
+
   return (
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <FlatList
@@ -216,7 +227,7 @@ export function ChatView({
         ]}
         onContentSizeChange={() => {
           if (parentId) return;
-          list.current?.scrollToEnd({ animated: false });
+          scrollToLatest(false);
         }}
         ListEmptyComponent={
           msgQ.data ? null : msgQ.isPending ? (
@@ -330,6 +341,7 @@ export function ChatView({
           onAttach={() => void attach()}
           onPickImage={() => void pickImage()}
           focusNonce={focusNonce}
+          onFocus={() => scrollToLatest(true)}
         />
       </View>
 

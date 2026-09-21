@@ -22,6 +22,7 @@ export function Composer({
   onPickImage,
   sending,
   focusNonce,
+  onFocus,
 }: {
   placeholder: string;
   onSend: (body: string) => void;
@@ -29,6 +30,7 @@ export function Composer({
   onPickImage?: () => void;
   sending?: boolean;
   focusNonce?: number;
+  onFocus?: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const [sel, setSel] = useState({ start: 0, end: 0 });
@@ -98,6 +100,7 @@ export function Composer({
   function onInputFocus() {
     if (blurTimer.current) clearTimeout(blurTimer.current);
     setFocused(true);
+    onFocus?.();
   }
 
   function onInputBlur() {
