@@ -159,7 +159,7 @@ fi
 
 verify_mac_app() {
   local app="$1"
-  echo "Verifying signature and notarization for $app…"
+  echo "Verifying signature and notarization for ${app}…"
   # Gatekeeper checks the app. electron-builder leaves the DMG unsigned on purpose.
   codesign --verify --deep --strict --verbose=2 "$app"
   spctl --assess --type execute --verbose "$app"
