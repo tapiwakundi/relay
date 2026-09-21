@@ -3,7 +3,6 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { api } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";
 import { Avatar } from "../ui/Avatar";
-import { HeaderBtn } from "../ui/Header";
 import { PageHeader, ScreenCanvas } from "../ui/SlackChrome";
 import { colors, radii, space } from "../ui/theme";
 import type { RootStackParamList } from "../nav/types";
@@ -25,7 +24,7 @@ export function ProfileScreen({ navigation, route }: Props) {
 
   return (
     <ScreenCanvas>
-      <PageHeader title="Profile" left={<HeaderBtn label="‹" onPress={() => navigation.goBack()} />} />
+      <PageHeader title="Profile" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={{ padding: space.md, paddingBottom: 40 }}>
         <View style={styles.card}>
           <Avatar name={member.displayName} image={member.image} size={96} presence={member.presence} />

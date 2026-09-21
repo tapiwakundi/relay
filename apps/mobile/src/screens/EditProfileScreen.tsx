@@ -56,7 +56,7 @@ export function EditProfileScreen({ navigation }: Props) {
     <ScreenCanvas>
       <PageHeader
         title="Edit profile"
-        left={<HeaderBtn label="‹" onPress={() => navigation.goBack()} />}
+        onBack={() => navigation.goBack()}
         right={<HeaderBtn label="Save" onPress={() => void save()} />}
       />
       <ScrollView contentContainerStyle={{ padding: space.md }}>

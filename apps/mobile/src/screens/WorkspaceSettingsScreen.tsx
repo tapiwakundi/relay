@@ -56,7 +56,7 @@ export function WorkspaceSettingsScreen({ navigation }: Props) {
     <ScreenCanvas>
       <PageHeader
         title="Workspace"
-        left={<HeaderBtn label="‹" onPress={() => navigation.goBack()} />}
+        onBack={() => navigation.goBack()}
         right={admin ? <HeaderBtn label="Save" onPress={() => void save()} /> : undefined}
       />
       <ScrollView contentContainerStyle={{ padding: space.md }}>

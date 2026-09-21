@@ -1,10 +1,12 @@
 import { useState, type ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { Avatar } from "./Avatar";
+import { Glass } from "./Glass";
 import { IconPencil } from "./Icons";
-import { colors, space } from "./theme";
+import { colors } from "./theme";
 
 export function useCompactScroll(threshold = 20) {
   const [compact, setCompact] = useState(false);
@@ -112,34 +114,71 @@ export function AubergineHeader({
 
 export function PageHeader({
   title,
-  left,
-  right,
   subtitle,
+  onBack,
+  back = "back",
+  right,
+  sheet = false,
 }: {
   title: string;
   subtitle?: string;
-  left?: ReactNode;
+  onBack?: () => void;
+  back?: "back" | "close";
   right?: ReactNode;
+  sheet?: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const paddingTop = sheet && Platform.OS === "ios" ? 10 : insets.top;
   return (
-    <View style={[styles.pageBar, { paddingTop: insets.top }]}>
+    <View style={[styles.pageHeader, { paddingTop }]}>
       <StatusBar style="dark" />
-      <View style={styles.pageRow}>
-        <View style={styles.side}>{left}</View>
-        <View style={styles.mid}>
-          <Text numberOfLines={1} style={styles.pageTitle}>
-            {title}
-          </Text>
-          {subtitle ? (
-            <Text numberOfLines={1} style={styles.pageSub}>
-              {subtitle}
-            </Text>
-          ) : null}
-        </View>
-        <View style={[styles.side, styles.sideRight]}>{right}</View>
+      <View style={styles.pageSide}>
+        {onBack ? (
+          <GlassIconButton
+            label={back === "close" ? "Close" : "Back"}
+            icon={back === "close" ? "close" : "chevron-back"}
+            onPress={onBack}
+          />
+        ) : null}
       </View>
+      <View style={styles.pageTitleWrap}>
+        <Text numberOfLines={1} style={styles.pageTitle}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text numberOfLines={1} style={styles.pageSub}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      <View style={[styles.pageSide, styles.pageSideRight]}>{right}</View>
     </View>
+  );
+}
+
+function GlassIconButton({
+  label,
+  icon,
+  onPress,
+}: {
+  label: string;
+  icon: "close" | "chevron-back";
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [styles.glassHit, pressed && styles.glassPressed]}
+    >
+      <Glass style={styles.glassBtn} fallback="light" colorScheme="light" variant="regular" interactive>
+        <View style={styles.glassInner} pointerEvents="none">
+          <Ionicons name={icon} size={icon === "close" ? 26 : 24} color={colors.ink} />
+        </View>
+      </Glass>
+    </Pressable>
   );
 }
 
@@ -240,20 +279,44 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
-  pageBar: {
-    backgroundColor: colors.canvas,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.hairline,
+  pageHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+    minHeight: 44,
   },
-  pageRow: {
-    height: 52,
-    paddingHorizontal: space.sm,
+  pageSide: {
+    flex: 1,
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
   },
-  side: { minWidth: 52 },
-  sideRight: { alignItems: "flex-end" },
-  mid: { flex: 1, alignItems: "center" },
-  pageTitle: { color: colors.ink, fontSize: 17, fontWeight: "800" },
-  pageSub: { color: colors.muted, fontSize: 12, marginTop: 1 },
+  pageSideRight: { justifyContent: "flex-end" },
+  pageTitleWrap: { alignItems: "center", justifyContent: "center", maxWidth: "62%" },
+  pageTitle: { color: colors.ink, fontSize: 17, fontWeight: "700", textAlign: "center" },
+  pageSub: { color: colors.muted, fontSize: 13, marginTop: 1, textAlign: "center" },
+  glassHit: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  glassBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: "hidden",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(60,60,67,0.2)",
+  },
+  glassInner: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  glassPressed: { opacity: 0.55 },
 });

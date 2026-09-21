@@ -16,7 +16,6 @@ import {
   IconHash,
   IconHeadphones,
   IconLock,
-  IconPlus,
   IconStar,
   IconThreads,
 } from "../ui/Icons";
@@ -151,10 +150,6 @@ export function HomeScreen() {
         onCompose={() => nav.navigate("NewDm")}
         onMe={() => nav.navigate("EditProfile")}
       />
-
-      <Pressable style={[styles.fab, { bottom: 92 + insets.bottom }]} onPress={() => nav.navigate("NewChannel")}>
-        <IconPlus size={28} />
-      </Pressable>
 
       <Modal visible={switcher} transparent animationType="fade" onRequestClose={() => setSwitcher(false)}>
         <Pressable style={styles.scrim} onPress={() => setSwitcher(false)} />
@@ -407,21 +402,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   countBadgeTxt: { color: colors.ink, fontSize: 10, fontWeight: "800" },
-  fab: {
-    position: "absolute",
-    right: 18,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.fab,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
-  },
   scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.32)" },
   switcher: {
     position: "absolute",

@@ -8,7 +8,6 @@ import { formatTime } from "../lib/format";
 import { keys } from "../lib/query";
 import { useWorkspace } from "../lib/workspace";
 import { Avatar } from "../ui/Avatar";
-import { HeaderBtn } from "../ui/Header";
 import { MessageBody } from "../ui/MessageBody";
 import { PageHeader, ScreenCanvas } from "../ui/SlackChrome";
 import { colors, space } from "../ui/theme";
@@ -104,7 +103,7 @@ function ListScreen({
   const emptyList = Array.isArray(children) ? children.length === 0 : !children;
   return (
     <ScreenCanvas>
-      <PageHeader title={title} left={<HeaderBtn label="‹" onPress={onBack} />} />
+      <PageHeader title={title} onBack={onBack} />
       <ScrollView contentContainerStyle={{ padding: space.md, gap: 10, paddingBottom: 40 }}>
         {emptyList ? <Text style={styles.empty}>{empty}</Text> : children}
       </ScrollView>

@@ -6,7 +6,6 @@ import type { Invite } from "@relay/shared";
 import { api } from "../lib/auth";
 import { keys } from "../lib/query";
 import { useWorkspace } from "../lib/workspace";
-import { HeaderBtn } from "../ui/Header";
 import { PageHeader, ScreenCanvas } from "../ui/SlackChrome";
 import { colors, radii, space } from "../ui/theme";
 import type { RootStackParamList } from "../nav/types";
@@ -29,7 +28,7 @@ export function InvitesScreen({ navigation }: Props) {
 
   return (
     <ScreenCanvas>
-      <PageHeader title="Invites" left={<HeaderBtn label="‹" onPress={() => navigation.goBack()} />} />
+      <PageHeader title="Invites" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={{ padding: space.md, gap: 12 }}>
         <View style={styles.card}>
           <Text style={styles.label}>Invite by email</Text>

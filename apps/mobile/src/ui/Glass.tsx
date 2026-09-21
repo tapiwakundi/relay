@@ -8,6 +8,24 @@ export function canUseLiquidGlass() {
   return Platform.OS === "ios" && isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
 }
 
+// UIGlassEffect is applied once, on the first layout. If that layout has no size,
+// or an ancestor opacity is below 1, the material never appears. Wait until after
+// layout before mounting GlassView.
+export function useGlassReady() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setReady(true));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, []);
+  return ready;
+}
+
 export function Glass({
   children,
   style,

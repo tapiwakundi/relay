@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
-import { GlassContainer, GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
+import { GlassContainer, GlassView } from "expo-glass-effect";
 import { useAccounts } from "../lib/account-manager";
 import { useWorkspace } from "../lib/workspace";
+import { canUseLiquidGlass, useGlassReady } from "../ui/Glass";
 import { IconBell, IconChat, IconDots, IconHome, IconSearch } from "../ui/Icons";
 import { colors } from "../ui/theme";
 
@@ -23,10 +24,10 @@ const LABELS: Record<string, string> = {
   You: "More",
 };
 
-const liquid = Platform.OS === "ios" && isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
-
 export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const glassReady = useGlassReady();
+  const liquid = canUseLiquidGlass() && glassReady;
   const { accounts, activeAccountId } = useAccounts();
   const { channels } = useWorkspace();
   const otherUnread = accounts

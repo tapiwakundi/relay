@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { View } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { DefaultTheme, NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -8,6 +9,7 @@ import { useAccounts } from "../lib/account-manager";
 import { navFromPush, openPendingIfReady, setPendingChannelOpener, setPendingNav } from "../lib/pending-nav";
 import { useWorkspace } from "../lib/workspace";
 import { GlassTabBar } from "./GlassTabBar";
+import { ComposeMenu } from "../ui/ComposeMenu";
 import { colors } from "../ui/theme";
 import { ActivityScreen } from "../screens/ActivityScreen";
 import { ChannelScreen } from "../screens/ChannelScreen";
@@ -37,19 +39,22 @@ const theme = {
 
 function TabNav() {
   return (
-    <Tabs.Navigator
-      tabBar={(props) => <GlassTabBar {...props} />}
-      screenOptions={{
-        headerShown: false,
-        sceneStyle: { backgroundColor: colors.canvas },
-        tabBarStyle: { position: "absolute", backgroundColor: "transparent", borderTopWidth: 0, elevation: 0 },
-      }}
-    >
-      <Tabs.Screen name="Home" component={HomeScreen} />
-      <Tabs.Screen name="DMs" component={DmsScreen} />
-      <Tabs.Screen name="Activity" component={ActivityScreen} />
-      <Tabs.Screen name="You" component={YouScreen} />
-    </Tabs.Navigator>
+    <View style={{ flex: 1 }}>
+      <Tabs.Navigator
+        tabBar={(props) => <GlassTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+          sceneStyle: { backgroundColor: colors.canvas },
+          tabBarStyle: { position: "absolute", backgroundColor: "transparent", borderTopWidth: 0, elevation: 0 },
+        }}
+      >
+        <Tabs.Screen name="Home" component={HomeScreen} />
+        <Tabs.Screen name="DMs" component={DmsScreen} />
+        <Tabs.Screen name="Activity" component={ActivityScreen} />
+        <Tabs.Screen name="You" component={YouScreen} />
+      </Tabs.Navigator>
+      <ComposeMenu />
+    </View>
   );
 }
 
@@ -97,14 +102,48 @@ export function RootNav() {
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="WorkspaceSettings" component={WorkspaceSettingsScreen} />
         <Stack.Screen name="Invites" component={InvitesScreen} />
-        <Stack.Screen name="NewChannel" component={NewChannelScreen} />
-        <Stack.Screen name="NewDm" component={NewDmScreen} />
-        <Stack.Screen name="Search" component={SearchScreen} />
+        <Stack.Screen
+          name="NewChannel"
+          component={NewChannelScreen}
+          options={{
+            presentation: "pageSheet",
+            animation: "slide_from_bottom",
+            gestureDirection: "vertical",
+            gestureEnabled: true,
+          }}
+        />
+        <Stack.Screen
+          name="NewDm"
+          component={NewDmScreen}
+          options={{
+            presentation: "pageSheet",
+            animation: "slide_from_bottom",
+            gestureDirection: "vertical",
+            gestureEnabled: true,
+          }}
+        />
+        <Stack.Screen
+          name="Search"
+          component={SearchScreen}
+          options={{
+            animation: "none",
+            gestureEnabled: false,
+          }}
+        />
         <Stack.Screen name="Later" component={LaterScreen} />
         <Stack.Screen name="Files" component={FilesScreen} />
         <Stack.Screen name="Threads" component={ThreadsScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-        <Stack.Screen name="AddWorkspace" component={AddWorkspaceScreen} />
+        <Stack.Screen
+          name="AddWorkspace"
+          component={AddWorkspaceScreen}
+          options={{
+            presentation: "pageSheet",
+            animation: "slide_from_bottom",
+            gestureDirection: "vertical",
+            gestureEnabled: true,
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
