@@ -2,7 +2,8 @@ import { Alert, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import type { Huddle } from "@relay/shared";
 import { api } from "./auth";
-import { applyWsEvent, getActiveWorkspaceId } from "./query";
+import { silenceHuddleRing, huddleRingSilenced } from "./huddle-ring";
+import { applyWsEvent, getActiveWorkspaceId, queryClient, type Bootstrap } from "./query";
 
 type LivekitCreds = { url: string | null; token: string | null };
 
@@ -22,17 +23,35 @@ type RoomLike = {
   localParticipant: { setMicrophoneEnabled: (enabled: boolean) => Promise<unknown> };
 };
 
-const declined = new Set<string>();
 let room: RoomLike | null = null;
 let stopAudio: (() => Promise<void>) | null = null;
 let micMuted = false;
 
 export function declineHuddle(huddleId?: string) {
-  if (huddleId) declined.add(huddleId);
+  silenceHuddleRing(huddleId);
 }
 
 export function huddleWasDeclined(huddleId: string) {
-  return declined.has(huddleId);
+  return huddleRingSilenced(huddleId);
+}
+
+function joinedHuddleId(channelId: string) {
+  const matches = queryClient.getQueriesData<Bootstrap>({ queryKey: ["bootstrap"] });
+  for (const [, boot] of matches) {
+    const huddle = boot?.channels.find((channel) => channel.id === channelId)?.huddle;
+    if (huddle?.id) return huddle.id;
+  }
+  return null;
+}
+
+async function dismissHuddleNotification(huddleId: string | null) {
+  if (!huddleId) return;
+  const shown = await Notifications.getPresentedNotificationsAsync().catch(() => []);
+  await Promise.all(
+    shown
+      .filter((item) => (item.request.content.data as { huddleId?: string } | undefined)?.huddleId === huddleId)
+      .map((item) => Notifications.dismissNotificationAsync(item.request.identifier).catch(() => undefined)),
+  );
 }
 
 function rememberHuddle(channelId: string, huddle: Huddle | null) {
@@ -77,15 +96,21 @@ export async function joinHuddleCall(channelId: string, opts?: { create?: boolea
     method: "POST",
     body: JSON.stringify({ create: opts?.create !== false }),
   });
+  silenceHuddleRing(res.huddle?.id);
   rememberHuddle(channelId, res.huddle);
+  void dismissHuddleNotification(res.huddle?.id ?? null);
   if (res.livekit?.url && res.livekit.token) await connectHuddleAudio(res.livekit);
   return res;
 }
 
 export async function leaveHuddleCall(channelId: string) {
+  const leavingId = joinedHuddleId(channelId);
+  silenceHuddleRing(leavingId);
   const res = await api<{ huddle: Huddle | null }>(`/api/channels/${channelId}/huddle/leave`, { method: "POST" });
+  silenceHuddleRing(res.huddle?.id ?? leavingId);
   micMuted = false;
   rememberHuddle(channelId, res.huddle);
+  await dismissHuddleNotification(leavingId);
   await disconnectHuddleAudio();
 }
 

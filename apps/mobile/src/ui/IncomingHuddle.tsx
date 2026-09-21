@@ -4,6 +4,7 @@ import * as Notifications from "expo-notifications";
 import type { PushNotificationData } from "@relay/shared";
 import { useAccounts } from "../lib/account-manager";
 import { answerHuddle, declineHuddle, ensureCallNotifications, huddleWasDeclined } from "../lib/huddle-call";
+import { silenceHuddleRing } from "../lib/huddle-ring";
 import { claimNotification, openHuddleScreen, pushFields, setPendingNav } from "../lib/pending-nav";
 import { addRealtimeListener } from "../lib/realtime-hub";
 import { useWorkspace } from "../lib/workspace";
@@ -40,10 +41,14 @@ export function IncomingHuddle() {
         return;
       }
       if (ev.huddle.participants.some((p) => p.userId === me.id)) {
+        silenceHuddleRing(ev.huddle.id);
         setIncoming((cur) => (cur?.huddleId === ev.huddle?.id ? null : cur));
         return;
       }
-      if (huddleWasDeclined(ev.huddle.id)) return;
+      if (huddleWasDeclined(ev.huddle.id)) {
+        setIncoming((cur) => (cur?.huddleId === ev.huddle?.id ? null : cur));
+        return;
+      }
       const caller =
         ev.huddle.participants.find((p) => p.userId === ev.huddle?.startedBy) ?? ev.huddle.participants[0];
       if (!caller || caller.userId === me.id) return;
