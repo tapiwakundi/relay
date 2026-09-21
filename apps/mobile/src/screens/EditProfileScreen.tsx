@@ -55,7 +55,7 @@ export function EditProfileScreen({ navigation }: Props) {
   return (
     <ScreenCanvas>
       <PageHeader
-        title="Edit profile"
+        title="Update profile"
         onBack={() => navigation.goBack()}
         right={<HeaderBtn label="Save" onPress={() => void save()} />}
       />

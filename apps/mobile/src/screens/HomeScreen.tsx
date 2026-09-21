@@ -147,8 +147,7 @@ export function HomeScreen() {
         meImage={me.image}
         mePresence={me.presence}
         onWorkspacePress={() => setSwitcher(true)}
-        onCompose={() => nav.navigate("NewDm")}
-        onMe={() => nav.navigate("EditProfile")}
+        onMe={() => nav.navigate("You")}
       />
 
       <Modal visible={switcher} transparent animationType="fade" onRequestClose={() => setSwitcher(false)}>

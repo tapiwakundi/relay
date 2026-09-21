@@ -12,6 +12,7 @@ export type RootStackParamList = {
   Files: undefined;
   Threads: undefined;
   EditProfile: undefined;
+  You: undefined;
   AddWorkspace: undefined;
 };
 
@@ -19,5 +20,4 @@ export type TabParamList = {
   Home: undefined;
   DMs: undefined;
   Activity: undefined;
-  You: undefined;
 };

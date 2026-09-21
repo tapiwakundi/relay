@@ -44,7 +44,7 @@ export function ProfileScreen({ navigation, route }: Props) {
             </Pressable>
           ) : (
             <Pressable style={styles.msg} onPress={() => navigation.navigate("EditProfile")}>
-              <Text style={styles.msgTxt}>Edit profile</Text>
+              <Text style={styles.msgTxt}>Update profile</Text>
             </Pressable>
           )}
         </View>

@@ -1,20 +1,18 @@
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useAccounts } from "../lib/account-manager";
 import { api } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";
 import { Avatar } from "../ui/Avatar";
-import { WorkspaceGlyph } from "../ui/Glyph";
-import { FloatingWorkspaceChrome, ScreenCanvas, ScrollingHero, useCompactScroll } from "../ui/SlackChrome";
+import { PageHeader, ScreenCanvas } from "../ui/SlackChrome";
 import { colors } from "../ui/theme";
 import type { RootStackParamList } from "../nav/types";
 
-export function YouScreen() {
-  const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+type Props = NativeStackScreenProps<RootStackParamList, "You">;
+
+export function YouScreen({ navigation }: Props) {
   const { me, workspace, workspaces, selectWorkspace } = useWorkspace();
   const { accounts, activeAccountId, switchAccount, removeAccount } = useAccounts();
-  const { compact, onScroll, scrollEventThrottle } = useCompactScroll();
 
   async function setPresence(presence: string) {
     await api("/api/me", { method: "PATCH", body: JSON.stringify({ presence }) });
@@ -22,14 +20,9 @@ export function YouScreen() {
 
   return (
     <ScreenCanvas>
-      <ScrollView
-        scrollEventThrottle={scrollEventThrottle}
-        onScroll={onScroll}
-        contentContainerStyle={{ paddingBottom: 140 }}
-      >
-        <ScrollingHero title="You" />
-        <View style={{ padding: 16 }}>
-        <Pressable onPress={() => nav.navigate("EditProfile")} style={styles.card}>
+      <PageHeader title="You" onBack={() => navigation.goBack()} />
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        <View style={styles.card}>
           <View style={styles.me}>
             <Avatar name={me.displayName} image={me.image} size={64} presence={me.presence} />
             <View style={{ flex: 1 }}>
@@ -41,7 +34,11 @@ export function YouScreen() {
               <Text style={styles.sub}>{me.statusText || me.presence}</Text>
             </View>
           </View>
-        </Pressable>
+        </View>
+
+        <View style={[styles.group, styles.firstGroup]}>
+          <Row label="Update profile" onPress={() => navigation.navigate("EditProfile")} />
+        </View>
 
         <Text style={styles.sec}>Presence</Text>
         <View style={styles.group}>
@@ -83,7 +80,7 @@ export function YouScreen() {
                 <Text style={styles.chev}>›</Text>
               </Pressable>
             ))}
-          <Pressable style={styles.row} onPress={() => nav.navigate("AddWorkspace")}>
+          <Pressable style={styles.row} onPress={() => navigation.navigate("AddWorkspace")}>
             <View style={styles.glyph}>
               <Text style={styles.glyphTxt}>+</Text>
             </View>
@@ -93,11 +90,11 @@ export function YouScreen() {
 
         <Text style={styles.sec}>{workspace.name}</Text>
         <View style={styles.group}>
-          <Row label="Workspace settings" onPress={() => nav.navigate("WorkspaceSettings")} />
-          <Row label="Invites" onPress={() => nav.navigate("Invites")} />
-          <Row label="Saved for later" onPress={() => nav.navigate("Later")} />
-          <Row label="Files" onPress={() => nav.navigate("Files")} />
-          <Row label="Threads" onPress={() => nav.navigate("Threads")} />
+          <Row label="Workspace settings" onPress={() => navigation.navigate("WorkspaceSettings")} />
+          <Row label="Invites" onPress={() => navigation.navigate("Invites")} />
+          <Row label="Saved for later" onPress={() => navigation.navigate("Later")} />
+          <Row label="Files" onPress={() => navigation.navigate("Files")} />
+          <Row label="Threads" onPress={() => navigation.navigate("Threads")} />
         </View>
 
         <Pressable
@@ -119,18 +116,7 @@ export function YouScreen() {
             <Text style={[styles.rowTxt, styles.out]}>Sign out</Text>
           </View>
         </Pressable>
-        </View>
       </ScrollView>
-      <FloatingWorkspaceChrome
-        compact={compact}
-        glyph={<WorkspaceGlyph workspace={workspace} size={compact ? 36 : 32} round={compact} />}
-        meName={me.displayName}
-        meImage={me.image}
-        mePresence={me.presence}
-        onWorkspacePress={() => nav.navigate("Home" as never)}
-        onCompose={() => nav.navigate("NewDm")}
-        onMe={() => nav.navigate("EditProfile")}
-      />
     </ScreenCanvas>
   );
 }
@@ -155,6 +141,7 @@ const styles = StyleSheet.create({
   me: { flexDirection: "row", gap: 14, alignItems: "center" },
   name: { color: colors.ink, fontSize: 20, fontWeight: "800" },
   sub: { color: colors.muted, marginTop: 2 },
+  firstGroup: { marginTop: 16 },
   sec: {
     color: colors.muted,
     fontWeight: "700",

@@ -74,7 +74,7 @@ export function SearchScreen({ navigation }: Props) {
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <Text style={styles.headerTitle}>Search</Text>
         <Pressable
-          onPress={() => navigation.navigate("EditProfile")}
+          onPress={() => navigation.navigate("You")}
           accessibilityRole="button"
           accessibilityLabel="Your profile"
           style={styles.me}

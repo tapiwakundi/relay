@@ -51,7 +51,6 @@ function TabNav() {
         <Tabs.Screen name="Home" component={HomeScreen} />
         <Tabs.Screen name="DMs" component={DmsScreen} />
         <Tabs.Screen name="Activity" component={ActivityScreen} />
-        <Tabs.Screen name="You" component={YouScreen} />
       </Tabs.Navigator>
       <ComposeMenu />
     </View>
@@ -134,6 +133,7 @@ export function RootNav() {
         <Stack.Screen name="Files" component={FilesScreen} />
         <Stack.Screen name="Threads" component={ThreadsScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+        <Stack.Screen name="You" component={YouScreen} />
         <Stack.Screen
           name="AddWorkspace"
           component={AddWorkspaceScreen}

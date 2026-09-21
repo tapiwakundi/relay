@@ -7,21 +7,19 @@ import { GlassContainer, GlassView } from "expo-glass-effect";
 import { useAccounts } from "../lib/account-manager";
 import { useWorkspace } from "../lib/workspace";
 import { canUseLiquidGlass, useGlassReady } from "../ui/Glass";
-import { IconBell, IconChat, IconDots, IconHome, IconSearch } from "../ui/Icons";
+import { IconBell, IconChat, IconHome, IconSearch } from "../ui/Icons";
 import { colors } from "../ui/theme";
 
 const ICONS: Record<string, (props: { color: string; filled?: boolean }) => ReactNode> = {
   Home: ({ color, filled }) => <IconHome color={color} filled={filled} size={24} />,
   DMs: ({ color, filled }) => <IconChat color={color} filled={filled} size={24} />,
   Activity: ({ color, filled }) => <IconBell color={color} filled={filled} size={24} />,
-  You: ({ color }) => <IconDots color={color} size={24} />,
 };
 
 const LABELS: Record<string, string> = {
   Home: "Home",
   DMs: "DMs",
   Activity: "Activity",
-  You: "More",
 };
 
 export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
@@ -40,7 +38,6 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
     Home: homeUnread,
     DMs: dmUnread,
     Activity: activityUnread,
-    You: otherUnread,
   };
 
   const tabs = state.routes.map((route, index) => {

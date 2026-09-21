@@ -5,7 +5,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { Avatar } from "./Avatar";
 import { Glass } from "./Glass";
-import { IconPencil } from "./Icons";
 import { colors } from "./theme";
 
 export function useCompactScroll(threshold = 20) {
@@ -51,7 +50,6 @@ export function FloatingWorkspaceChrome({
   meImage,
   mePresence,
   onWorkspacePress,
-  onCompose,
   onMe,
 }: {
   compact: boolean;
@@ -60,7 +58,6 @@ export function FloatingWorkspaceChrome({
   meImage?: string | null;
   mePresence?: string;
   onWorkspacePress: () => void;
-  onCompose: () => void;
   onMe: () => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -72,9 +69,6 @@ export function FloatingWorkspaceChrome({
           {glyph}
         </Pressable>
         <View style={{ flex: 1 }} />
-        <Pressable style={[styles.compose, compact && styles.composeCompact]} onPress={onCompose}>
-          <IconPencil size={16} color={compact ? colors.ink : colors.headerInk} />
-        </Pressable>
         <Pressable style={[styles.meBtn, compact && styles.meBtnCompact]} onPress={onMe}>
           <Avatar name={meName} image={meImage} size={32} presence={compact ? mePresence : undefined} />
         </Pressable>
@@ -246,22 +240,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     shadowColor: "#000",
     shadowOpacity: 0.16,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  compose: {
-    width: 44,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.22)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  composeCompact: {
-    backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOpacity: 0.14,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,

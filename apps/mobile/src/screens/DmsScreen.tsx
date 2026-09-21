@@ -41,7 +41,7 @@ export function DmsScreen() {
             </Pressable>
           );
         })}
-        {!dms.length ? <Text style={styles.empty}>No DMs yet. Tap compose to start one.</Text> : null}
+        {!dms.length ? <Text style={styles.empty}>No DMs yet.</Text> : null}
         <Text style={styles.sec}>People</Text>
         {members
           .filter((m) => m.userId !== me.id)
@@ -62,8 +62,7 @@ export function DmsScreen() {
         meImage={me.image}
         mePresence={me.presence}
         onWorkspacePress={() => nav.navigate("Home" as never)}
-        onCompose={() => nav.navigate("NewDm")}
-        onMe={() => nav.navigate("EditProfile")}
+        onMe={() => nav.navigate("You")}
       />
     </ScreenCanvas>
   );

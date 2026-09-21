@@ -86,8 +86,7 @@ export function ActivityScreen() {
         meImage={me.image}
         mePresence={me.presence}
         onWorkspacePress={() => nav.navigate("Home" as never)}
-        onCompose={() => nav.navigate("NewDm")}
-        onMe={() => nav.navigate("EditProfile")}
+        onMe={() => nav.navigate("You")}
       />
     </ScreenCanvas>
   );
