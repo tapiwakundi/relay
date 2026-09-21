@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
-import type { Channel, ChatMessage, Member, Workspace, WorkspaceSummary, WsServerEvent } from "@relay/shared";
+import type { Channel, ChatMessage, InboxInvite, Member, Workspace, WorkspaceSummary, WsServerEvent } from "@relay/shared";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,6 +48,7 @@ export type MeResponse = {
   activeWorkspaceId: string | null;
   membership: Member | null;
   workspace: Workspace | null;
+  pendingInvites: InboxInvite[];
 };
 
 export type Bootstrap = { workspace: Workspace; members: Member[]; channels: Channel[] };

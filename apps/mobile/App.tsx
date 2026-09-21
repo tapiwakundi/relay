@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -10,6 +10,7 @@ import { api } from "./src/lib/auth";
 import { keys, queryClient, type MeResponse } from "./src/lib/query";
 import { WorkspaceProvider } from "./src/lib/workspace";
 import { RootNav } from "./src/nav/Root";
+import { AcceptInviteScreen } from "./src/screens/AcceptInviteScreen";
 import { CreateWorkspaceScreen } from "./src/screens/CreateWorkspaceScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { colors } from "./src/ui/theme";
@@ -32,6 +33,11 @@ export default function App() {
 
 function Gate() {
   const { ready, activeAccountId, adding, cancelAddAccount } = useAccounts();
+  const [skipInvites, setSkipInvites] = useState(false);
+
+  useEffect(() => {
+    setSkipInvites(false);
+  }, [activeAccountId]);
 
   useEffect(() => {
     const accept = async (url: string) => {
@@ -70,7 +76,23 @@ function Gate() {
     return <Splash error="Can't reach Relay" onRetry={() => void meQ.refetch()} />;
   }
   if (!meQ.data?.workspace) {
-    return <CreateWorkspaceScreen onCreated={() => void queryClient.invalidateQueries({ queryKey: keys.me })} />;
+    const pendingInvites = meQ.data?.pendingInvites ?? [];
+    const onCreated = () => void queryClient.invalidateQueries({ queryKey: keys.me });
+    if (pendingInvites.length > 0 && !skipInvites) {
+      return (
+        <AcceptInviteScreen
+          pendingInvites={pendingInvites}
+          onCreated={onCreated}
+          onCreateWorkspace={() => setSkipInvites(true)}
+        />
+      );
+    }
+    return (
+      <CreateWorkspaceScreen
+        onCreated={onCreated}
+        onBackToInvites={pendingInvites.length ? () => setSkipInvites(false) : undefined}
+      />
+    );
   }
 
   return (

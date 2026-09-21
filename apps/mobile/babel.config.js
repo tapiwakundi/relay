@@ -1,4 +1,4 @@
 module.exports = function (api) {
-  api.cache(true);
+  api.cache.using(() => process.env.EXPO_PUBLIC_API_URL ?? "");
   return { presets: ["babel-preset-expo"] };
 };

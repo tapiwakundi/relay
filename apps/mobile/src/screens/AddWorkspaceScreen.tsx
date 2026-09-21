@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useQuery } from "@tanstack/react-query";
+import type { InboxInvite } from "@relay/shared";
 import { useAccounts } from "../lib/account-manager";
 import { api } from "../lib/auth";
-import { keys, queryClient, setActiveWorkspaceId } from "../lib/query";
+import { keys, queryClient, setActiveWorkspaceId, type MeResponse } from "../lib/query";
 import { useWorkspace } from "../lib/workspace";
 import { HeaderBtn } from "../ui/Header";
 import { PageHeader, ScreenCanvas } from "../ui/SlackChrome";
@@ -16,6 +18,11 @@ type Panel = "choose" | "find" | "create";
 export function AddWorkspaceScreen({ navigation }: Props) {
   const { startAddAccount } = useAccounts();
   const { workspaces, workspace, selectWorkspace } = useWorkspace();
+  const meQ = useQuery({
+    queryKey: keys.me,
+    queryFn: () => api<MeResponse>("/api/me"),
+  });
+  const pendingInvites = meQ.data?.pendingInvites ?? [];
   const [view, setView] = useState<Panel>("choose");
   const [name, setName] = useState("");
   const [invite, setInvite] = useState("");
@@ -35,6 +42,25 @@ export function AddWorkspaceScreen({ navigation }: Props) {
       await api(`/api/workspaces/${created.workspace.id}/select`, { method: "POST" });
       setActiveWorkspaceId(created.workspace.id);
       await queryClient.invalidateQueries({ queryKey: keys.me });
+      navigation.goBack();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function joinInbox(item: InboxInvite) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api<{ workspace: { id: string } }>("/api/invites/accept", {
+        method: "POST",
+        body: JSON.stringify({ inviteId: item.id }),
+      });
+      if (res.workspace?.id) {
+        await selectWorkspace(res.workspace.id);
+      }
       navigation.goBack();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -79,6 +105,13 @@ export function AddWorkspaceScreen({ navigation }: Props) {
         {error ? <Text style={styles.err}>{error}</Text> : null}
         {view === "choose" ? (
           <>
+            {pendingInvites.length ? (
+              <Row
+                icon="✉"
+                label={pendingInvites.length === 1 ? "1 pending invite" : `${pendingInvites.length} pending invites`}
+                onPress={() => setView("find")}
+              />
+            ) : null}
             <Row icon="👤+" label="Sign in to another workspace" onPress={() => startAddAccount()} />
             <Row icon="⌕" label="Find workspaces" onPress={() => setView("find")} />
             <Row icon="+" label="Create a new workspace" onPress={() => setView("create")} />
@@ -98,6 +131,24 @@ export function AddWorkspaceScreen({ navigation }: Props) {
           </View>
         ) : (
           <>
+            {pendingInvites.map((item) => (
+              <View key={item.id} style={styles.row}>
+                <View style={[styles.ico, { backgroundColor: item.workspace.iconColor }]}>
+                  <Text style={styles.icoTxt}>
+                    {(item.workspace.iconLetter || item.workspace.name[0] || "W").toUpperCase()}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowTxt}>{item.workspace.name}</Text>
+                  <Text style={styles.meta}>
+                    {item.invitedByName ? `Invited by ${item.invitedByName}` : "Pending invite"}
+                  </Text>
+                </View>
+                <Pressable style={styles.smallCta} disabled={busy} onPress={() => void joinInbox(item)}>
+                  <Text style={styles.ctaTxt}>Accept</Text>
+                </Pressable>
+              </View>
+            ))}
             {workspaces.map((ws) => (
               <Pressable
                 key={ws.id}
@@ -172,6 +223,7 @@ const styles = StyleSheet.create({
   },
   icoTxt: { color: colors.ink, fontWeight: "700", fontSize: 16 },
   rowTxt: { color: colors.ink, fontSize: 16, fontWeight: "600", flex: 1 },
+  meta: { color: colors.muted, fontSize: 13, marginTop: 2 },
   err: { color: colors.pink },
   input: {
     height: 48,
@@ -189,4 +241,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ctaTxt: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  smallCta: {
+    height: 36,
+    paddingHorizontal: 12,
+    borderRadius: radii.sm,
+    backgroundColor: colors.green,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

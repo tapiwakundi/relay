@@ -4,7 +4,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-PRODUCTION_API_URL="${RELAY_API_URL:-https://relay-api-rsck.onrender.com}"
+PROD_ENV="$ROOT/apps/desktop/.env.prod"
+if [[ -f "$PROD_ENV" ]]; then
+  PRODUCTION_API_URL="$(grep -E '^RELAY_API_URL=' "$PROD_ENV" | tail -n1 | cut -d= -f2- | tr -d '\"' | tr -d '\r')"
+fi
+PRODUCTION_API_URL="${PRODUCTION_API_URL:-https://relay-api-rsck.onrender.com}"
 DMG="apps/desktop/release/Relay-mac-arm64.dmg"
 ZIP="apps/desktop/release/Relay-mac-arm64.zip"
 UPDATE_YML="apps/desktop/release/latest-mac.yml"
@@ -113,7 +117,7 @@ fi
 TAG="v${VERSION}"
 
 echo "Building, signing, and notarizing Relay ${VERSION}…"
-export RELAY_API_URL="$PRODUCTION_API_URL"
+export APP_ENV=prod
 pnpm --filter @relay/desktop dist
 
 test -d "$APP"

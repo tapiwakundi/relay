@@ -11,8 +11,8 @@ const RELEASE_CONFIGURATION = "Release";
  * time) and any env vars needed by Xcode build phases. Xcode's shell has a
  * minimal PATH so $(command -v node) won't work there.
  *
- * APP_ENV=prod is only exported for Release so Debug `expo run:ios` keeps
- * the local API URL. Archives still get prod because they use Release.
+ * APP_ENV=prod is only exported for Release so Debug `expo run:ios` loads
+ * .env.local. Archives load .env.prod because they use Release.
  */
 function writeXcodeEnvLocal(iosDir) {
   const filePath = path.join(iosDir, ".xcode.env.local");

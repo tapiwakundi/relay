@@ -1,44 +1,24 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  PRODUCTION_API_ORIGIN,
-  localGoogleOAuthHeaders,
-  resolveApiOrigin,
-} from "../src/lib/api-origin";
+import { localGoogleOAuthHeaders, resolveApiOrigin } from "../src/lib/api-origin";
 
 describe("mobile api origin", () => {
-  it("uses the LAN env while Metro is attached", () => {
+  it("uses EXPO_PUBLIC_API_URL as-is", () => {
+    assert.equal(resolveApiOrigin("http://localhost:3001"), "http://localhost:3001");
+    assert.equal(resolveApiOrigin("http://192.168.1.82:3001/"), "http://192.168.1.82:3001");
     assert.equal(
-      resolveApiOrigin({
-        env: "http://192.168.1.82:3001",
-        dev: true,
-        hostUri: "192.168.1.82:8081",
-      }),
-      "http://192.168.1.82:3001",
+      resolveApiOrigin("https://relay-api-rsck.onrender.com/"),
+      "https://relay-api-rsck.onrender.com",
     );
   });
 
-  it("ignores LAN env in TestFlight and other installs without Metro", () => {
-    assert.equal(
-      resolveApiOrigin({ env: "http://192.168.1.82:3001", dev: false }),
-      PRODUCTION_API_ORIGIN,
-    );
-    assert.equal(
-      resolveApiOrigin({ env: "http://192.168.1.82:3001", dev: true, hostUri: "" }),
-      PRODUCTION_API_ORIGIN,
-    );
-    assert.equal(resolveApiOrigin({ env: "http://localhost:3001", dev: false }), PRODUCTION_API_ORIGIN);
-  });
-
-  it("allows an explicit https production override in release", () => {
-    assert.equal(
-      resolveApiOrigin({ env: "https://relay.example.com/", dev: false }),
-      "https://relay.example.com",
-    );
+  it("requires EXPO_PUBLIC_API_URL", () => {
+    assert.throws(() => resolveApiOrigin(""), /EXPO_PUBLIC_API_URL is not set/);
+    assert.throws(() => resolveApiOrigin(null), /EXPO_PUBLIC_API_URL is not set/);
   });
 
   it("does not spoof localhost Google callbacks against a public API", () => {
-    assert.equal(localGoogleOAuthHeaders(PRODUCTION_API_ORIGIN), undefined);
+    assert.equal(localGoogleOAuthHeaders("https://relay-api-rsck.onrender.com"), undefined);
     assert.deepEqual(localGoogleOAuthHeaders("http://192.168.1.82:3001"), {
       "x-forwarded-host": "localhost:3001",
       "x-forwarded-proto": "http",

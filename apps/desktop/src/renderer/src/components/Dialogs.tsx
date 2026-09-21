@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { Channel, Invite, Member, Workspace } from "@relay/shared";
+import type { Channel, InboxInvite, Invite, Member, Workspace } from "@relay/shared";
 import type { UpdateState } from "../../../shared/ipc";
 import { Close, Plus, SearchIcon, UserPlus } from "./Icons";
 import { WorkspaceGlyph } from "./WorkspaceGlyph";
@@ -37,7 +37,7 @@ export function InviteDialog({
   const [error, setError] = useState<string | null>(null);
   return (
     <FormDialog title="Invite teammates" onClose={onClose}>
-      <p className="dialog-copy">They’ll join this workspace after they create a Relay account with this email.</p>
+      <p className="dialog-copy">They’ll see this invite after they create a Relay account with this email.</p>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -419,19 +419,23 @@ export function WorkspaceSettingsDialog({
 
 export function AddWorkspaceDialog({
   workspaces,
+  pendingInvites,
   currentWorkspaceId,
   onSignInOther,
   onSelectWorkspace,
   onCreate,
   onJoinInvite,
+  onAcceptInboxInvite,
   onClose,
 }: {
   workspaces: Workspace[];
+  pendingInvites: InboxInvite[];
   currentWorkspaceId: string;
   onSignInOther: () => void;
   onSelectWorkspace: (id: string) => Promise<void>;
   onCreate: (name: string) => Promise<void>;
   onJoinInvite: (token: string) => Promise<void>;
+  onAcceptInboxInvite: (inviteId: string) => Promise<void>;
   onClose: () => void;
 }) {
   const [view, setView] = useState<"choose" | "find" | "create">("choose");
@@ -464,6 +468,12 @@ export function AddWorkspaceDialog({
         </div>
         {view === "choose" ? (
           <div className="add-ws-list">
+            {pendingInvites.length ? (
+              <button type="button" className="add-ws-row" onClick={() => setView("find")}>
+                <span className="add-ws-ico">✉</span>
+                {pendingInvites.length === 1 ? "1 pending invite" : `${pendingInvites.length} pending invites`}
+              </button>
+            ) : null}
             <button type="button" className="add-ws-row" onClick={onSignInOther}>
               <span className="add-ws-ico">
                 <UserPlus />
@@ -488,6 +498,29 @@ export function AddWorkspaceDialog({
             {error ? <div className="add-ws-error">{error}</div> : null}
             {view === "find" ? (
               <>
+                {pendingInvites.length ? (
+                  <div className="add-ws-list">
+                    {pendingInvites.map((item) => (
+                      <div key={item.id} className="add-ws-row add-ws-invite">
+                        <WorkspaceGlyph className="sm" workspace={item.workspace} />
+                        <span>
+                          {item.workspace.name}
+                          <span className="add-ws-invite-who">
+                            {item.invitedByName ? `Invited by ${item.invitedByName}` : "Pending invite"}
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          className="add-ws-submit"
+                          disabled={busy}
+                          onClick={() => void run(async () => onAcceptInboxInvite(item.id))}
+                        >
+                          Accept
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 {workspaces.length ? (
                   <div className="add-ws-list">
                     {workspaces.map((ws) => (

@@ -1,22 +1,9 @@
-export const PRODUCTION_API_ORIGIN = "https://relay-api-rsck.onrender.com";
-
-export function resolveApiOrigin(opts: {
-  env?: string | null;
-  dev: boolean;
-  hostUri?: string;
-}) {
-  const env = (opts.env ?? "").trim().replace(/\/$/, "");
-  const packagerHost = (opts.hostUri ?? "").split(":")[0];
-  const attachedToPackager = Boolean(packagerHost);
-
-  if (opts.dev && attachedToPackager) {
-    if (env) return env;
-    if (packagerHost !== "localhost" && packagerHost !== "127.0.0.1") return `http://${packagerHost}:3001`;
-    return "http://localhost:3001";
+export function resolveApiOrigin(env = process.env.EXPO_PUBLIC_API_URL) {
+  const origin = (env ?? "").trim().replace(/\/$/, "");
+  if (!origin) {
+    throw new Error("EXPO_PUBLIC_API_URL is not set");
   }
-
-  if (env && isPublicHttps(env)) return env;
-  return PRODUCTION_API_ORIGIN;
+  return origin;
 }
 
 export function localGoogleOAuthHeaders(origin: string): Record<string, string> | undefined {

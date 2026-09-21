@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
-import { sanitizeAuthRequest } from "../src/auth-forwarded.js";
+import { sanitizeAuthRequest, skipOAuthStateCookieCheck } from "../src/auth-forwarded.js";
 import type { Auth } from "../src/better-auth.js";
 import type { AppDb } from "../src/db/index.js";
 import { Hub } from "../src/hub.js";
@@ -32,6 +32,12 @@ describe("auth forwarded headers", () => {
     );
     expect(sanitized.headers.get("x-forwarded-host")).toBe("localhost:3001");
     expect(sanitized.headers.get("x-forwarded-proto")).toBe("http");
+  });
+
+  it("skips the OAuth state cookie only on local and LAN origins", () => {
+    expect(skipOAuthStateCookieCheck("http://localhost:3001")).toBe(true);
+    expect(skipOAuthStateCookieCheck("http://192.168.1.82:3001")).toBe(true);
+    expect(skipOAuthStateCookieCheck("https://relay-api-rsck.onrender.com")).toBe(false);
   });
 
   it("does not bounce the Expo auth proxy to localhost", async () => {

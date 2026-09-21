@@ -4,6 +4,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { expo } from "@better-auth/expo";
 import { bearer } from "better-auth/plugins";
 import { electron } from "@better-auth/electron";
+import { skipOAuthStateCookieCheck } from "./auth-forwarded.js";
 import * as schema from "./db/schema.js";
 import type { AppDb } from "./db/index.js";
 
@@ -53,8 +54,10 @@ export function createAuth(db: AppDb) {
       fallback: apiOrigin,
     },
     secret,
-    // @ts-expect-error Better Auth 1.7 identityStrategy is a runtime option missing from published types
-    account: { identityStrategy: "provider-id" },
+    account: {
+      identityStrategy: "provider-id",
+      skipStateCookieCheck: skipOAuthStateCookieCheck(apiOrigin),
+    },
     database: drizzleAdapter(db, {
       provider: "pg",
       schema: {

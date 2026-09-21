@@ -1,18 +1,18 @@
-import { config } from "dotenv";
 import { resolve } from "node:path";
 import { app } from "electron";
 import { createAuthClient } from "better-auth/client";
 import { electronClient } from "@better-auth/electron/client";
 import { APP_ID, AUTH_SCHEME } from "../shared/ipc";
 import { vaultStorage } from "./account-conf";
+import { loadDesktopEnv, resolveDesktopAppEnv } from "../env";
 
 app.setName("Relay");
 app.setAppUserModelId(APP_ID);
 
 if (!app.isPackaged) {
   const appDir = resolve(__dirname, "../..");
-  config({ path: resolve(appDir, ".env") });
-  config({ path: resolve(appDir, ".env.local"), override: true });
+  const loaded = loadDesktopEnv(appDir, resolveDesktopAppEnv("serve"));
+  console.log(`[desktop] APP_ENV=${loaded.appEnv} file=${loaded.file} RELAY_API_URL=${loaded.origin}`);
 }
 
 function apiOrigin() {

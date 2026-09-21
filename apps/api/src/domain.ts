@@ -1,5 +1,5 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
-import type { Channel } from "@relay/shared";
+import { and, desc, eq, inArray, isNull, lt } from "drizzle-orm";
+import type { Channel, InboxInvite } from "@relay/shared";
 import { HttpError, requireWorkspaceMember, setActiveWorkspace } from "./access.js";
 import type { AppDb } from "./db/index.js";
 import {
@@ -12,7 +12,7 @@ import {
   workspaceMember,
 } from "./db/schema.js";
 import { isUniqueViolation } from "./errors.js";
-import { getMembers, hydrateHuddle, toChannel } from "./queries.js";
+import { getMembers, hydrateHuddle, toChannel, toPublicWorkspace } from "./queries.js";
 
 export type AuthPerson = {
   id: string;
@@ -156,16 +156,74 @@ export async function joinWorkspace(db: AppDb, workspaceId: string, person: Auth
   });
 }
 
-export async function acceptInvite(db: AppDb, token: string, person: AuthPerson) {
+export function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+export async function listPendingInvitesForEmail(
+  db: AppDb,
+  email: string,
+  userId: string,
+): Promise<InboxInvite[]> {
+  const normalized = normalizeEmail(email);
+  if (!normalized.includes("@")) return [];
+  await db
+    .update(invite)
+    .set({ status: "expired" })
+    .where(and(eq(invite.email, normalized), eq(invite.status, "pending"), lt(invite.expiresAt, new Date())));
+
+  const rows = await db
+    .select({
+      invite,
+      workspace,
+      invitedByName: user.name,
+      memberUserId: workspaceMember.userId,
+    })
+    .from(invite)
+    .innerJoin(workspace, eq(workspace.id, invite.workspaceId))
+    .leftJoin(user, eq(user.id, invite.invitedBy))
+    .leftJoin(
+      workspaceMember,
+      and(
+        eq(workspaceMember.workspaceId, invite.workspaceId),
+        eq(workspaceMember.userId, userId),
+        isNull(workspaceMember.leftAt),
+      ),
+    )
+    .where(and(eq(invite.email, normalized), eq(invite.status, "pending"), isNull(workspace.deletedAt)))
+    .orderBy(desc(invite.createdAt));
+
+  return Promise.all(
+    rows
+      .filter((row) => !row.memberUserId)
+      .map(async (row) => ({
+        id: row.invite.id,
+        workspace: await toPublicWorkspace(row.workspace),
+        invitedByName: row.invitedByName ?? null,
+        createdAt: row.invite.createdAt.toISOString(),
+      })),
+  );
+}
+
+export async function acceptInvite(
+  db: AppDb,
+  person: AuthPerson,
+  claim: { token?: string; inviteId?: string },
+) {
+  const token = claim.token?.trim();
+  const inviteId = claim.inviteId?.trim();
+  if (!token && !inviteId) throw new HttpError(400, "Invite is not valid");
   return db.transaction(async (tx) => {
     const conn = tx as unknown as AppDb;
-    const [row] = await tx.select().from(invite).where(eq(invite.token, token)).limit(1);
+    const [row] = token
+      ? await tx.select().from(invite).where(eq(invite.token, token)).limit(1)
+      : await tx.select().from(invite).where(eq(invite.id, inviteId!)).limit(1);
     if (!row || row.status !== "pending") throw new HttpError(400, "Invite is not valid");
     if (row.expiresAt.getTime() < Date.now()) {
       await tx.update(invite).set({ status: "expired" }).where(eq(invite.id, row.id));
       throw new HttpError(400, "Invite has expired");
     }
-    if (row.email.trim().toLowerCase() !== person.email.trim().toLowerCase()) {
+    if (normalizeEmail(row.email) !== normalizeEmail(person.email)) {
       throw new HttpError(403, "This invite is for a different email");
     }
     await joinWorkspaceOn(conn, row.workspaceId, person);
@@ -305,7 +363,7 @@ export async function loadChannelForUser(db: AppDb, channelId: string, userId: s
 }
 
 export async function createInvite(db: AppDb, workspaceId: string, invitedBy: string, email: string) {
-  const normalized = email.trim().toLowerCase();
+  const normalized = normalizeEmail(email);
   if (!normalized.includes("@")) throw new HttpError(400, "Valid email required");
   const token = crypto.randomUUID().replaceAll("-", "");
   const id = crypto.randomUUID();

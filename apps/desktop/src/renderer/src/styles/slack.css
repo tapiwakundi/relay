@@ -114,6 +114,12 @@ button {
   letter-spacing: -1.5px;
   font-weight: 700;
   margin: 12px 0 8px;
+  overflow-wrap: anywhere;
+}
+.btn-demo:disabled,
+.btn-google:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 .login-card .sub {
   font-size: 18px;
@@ -171,6 +177,46 @@ button {
   height: 1px;
   background: #ddd;
 }
+.invite-inbox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 20px;
+  text-align: left;
+}
+.invite-inbox-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #d8d3c8;
+  border-radius: 12px;
+  background: #fff;
+}
+.invite-inbox-meta {
+  flex: 1;
+  min-width: 0;
+}
+.invite-inbox-name {
+  font-weight: 700;
+  font-size: 15px;
+}
+.invite-inbox-who {
+  font-size: 13px;
+  color: #616061;
+}
+.invite-inbox-item button {
+  height: 32px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  background: #007a5a;
+  color: #fff;
+  font-weight: 700;
+}
+.invite-inbox-item button:disabled {
+  opacity: 0.45;
+}
 .btn-demo {
   background: #ecb22e;
   color: #2a210c;
@@ -183,6 +229,28 @@ button {
   margin-top: 20px;
   color: #616061;
   font-size: 14px;
+}
+.login-quiet {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  color: #8b8b8d;
+}
+.login-quiet button {
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.login-quiet button:hover {
+  color: #616061;
+}
+.login-card .btn-demo + .btn-demo {
+  margin-top: 10px;
 }
 .login-foot {
   margin-top: 40px;
@@ -1694,8 +1762,66 @@ code {
 }
 .workspace-menu {
   position: absolute;
-  top: 56px;
-  left: 86px;
+  top: 52px;
+  left: 78px;
+  width: 280px;
+  max-width: calc(100vw - 96px);
+  padding: 6px 0 8px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(29, 28, 29, 0.12), 0 14px 40px rgba(0, 0, 0, 0.18);
+}
+.ws-menu-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 12px;
+}
+.ws-menu-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ws-menu-copy strong {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-menu-copy em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-menu-sep {
+  height: 1px;
+  margin: 6px 12px;
+  background: var(--border);
+}
+.workspace-menu button {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 14px;
+  color: var(--text);
+}
+.workspace-menu button:hover,
+.workspace-menu button:focus-visible {
+  background: var(--hover-msg);
+  color: var(--text);
+}
+.workspace-menu .ws-menu-signout {
+  color: var(--text-2);
+}
+.workspace-menu .ws-menu-signout:hover,
+.workspace-menu .ws-menu-signout:focus-visible {
+  background: #fff5f6;
+  color: var(--pink, #e01e5a);
 }
 .account-group {
   padding: 4px 0 8px;
@@ -2021,6 +2147,25 @@ code {
 }
 .add-ws-row:disabled {
   opacity: 0.55;
+}
+.add-ws-invite {
+  padding-right: 16px;
+}
+.add-ws-invite > span {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 2px;
+}
+.add-ws-invite-who {
+  font-size: 12px;
+  color: #ababad;
+}
+.add-ws-invite .add-ws-submit {
+  width: auto;
+  flex-shrink: 0;
 }
 .add-ws-ico {
   width: 36px;

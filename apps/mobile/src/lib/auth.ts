@@ -1,6 +1,5 @@
 import { createAuthClient } from "better-auth/react";
 import { expoClient } from "@better-auth/expo/client";
-import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import { notifyAccountExpired } from "./session";
 import { getActiveWorkspaceId } from "./query";
@@ -11,11 +10,7 @@ import { localGoogleOAuthHeaders, resolveApiOrigin } from "./api-origin";
 const FETCH_TIMEOUT_MS = 12_000;
 
 export function apiOrigin() {
-  return resolveApiOrigin({
-    env: process.env.EXPO_PUBLIC_API_URL,
-    dev: typeof __DEV__ === "undefined" ? true : __DEV__,
-    hostUri: Constants.expoConfig?.hostUri ?? "",
-  });
+  return resolveApiOrigin(process.env.EXPO_PUBLIC_API_URL);
 }
 
 export function wsOrigin() {

@@ -21,6 +21,7 @@ import { applyWsEvent, keys, setActiveWorkspaceId, type Bootstrap, type Me, type
 import { Composer } from "./components/Composer";
 import { MessageList } from "./components/MessageList";
 import { CreateWorkspaceScreen } from "./components/CreateWorkspaceScreen";
+import { AcceptInviteScreen } from "./components/AcceptInviteScreen";
 import {
   AddWorkspaceDialog,
   ChannelDialog,
@@ -82,6 +83,7 @@ export function WorkspaceApp() {
   const [homeView, setHomeView] = useState<HomeView>("channels");
   const [switcher, setSwitcher] = useState(false);
   const [addWorkspace, setAddWorkspace] = useState(false);
+  const [skipInvites, setSkipInvites] = useState(false);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [typing, setTyping] = useState<string | null>(null);
   const [inHuddle, setInHuddle] = useState(false);
@@ -202,7 +204,7 @@ export function WorkspaceApp() {
       const token =
         sessionStorage.getItem("relay-invite") ??
         new URLSearchParams(window.location.search).get("invite");
-      if (!token || !me) return;
+      if (!token || !me || !workspace) return;
       void api<{ workspace: Workspace }>("/api/invites/accept", { method: "POST", body: JSON.stringify({ token }) })
         .then(async (res) => {
           if (res.workspace?.id) {
@@ -221,7 +223,7 @@ export function WorkspaceApp() {
     accept();
     window.addEventListener("relay-invite", accept);
     return () => window.removeEventListener("relay-invite", accept);
-  }, [me, qc]);
+  }, [me, workspace, qc]);
 
   useEffect(() => {
     if (activeId || !channels.length) return;
@@ -677,14 +679,24 @@ export function WorkspaceApp() {
     return <div className="shell" style={{ background: "var(--aubergine)" }} />;
   }
   if (!workspace) {
+    const pendingInvites = meQuery.data?.pendingInvites ?? [];
+    const onCreated = () => {
+      void qc.invalidateQueries({ queryKey: keys.me });
+    };
+    if (pendingInvites.length > 0 && !skipInvites) {
+      return (
+        <AcceptInviteScreen
+          pendingInvites={pendingInvites}
+          onCreated={onCreated}
+          onCreateWorkspace={() => setSkipInvites(true)}
+        />
+      );
+    }
     return (
       <CreateWorkspaceScreen
         defaultName={me.name ? `${me.name.split(" ")[0]}’s workspace` : ""}
-        userName={me.name}
-        image={me.image}
-        onCreated={() => {
-          void qc.invalidateQueries({ queryKey: keys.me });
-        }}
+        onCreated={onCreated}
+        onBackToInvites={pendingInvites.length ? () => setSkipInvites(false) : undefined}
       />
     );
   }
@@ -1226,27 +1238,41 @@ export function WorkspaceApp() {
         </div>
       )}
       {dialog === "workspace" && (
-        <div className="modal-bg" onClick={() => setDialog(null)}>
-          <div className="menu workspace-menu" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-bg switcher-bg" onClick={() => setDialog(null)}>
+          <div className="menu workspace-menu" role="menu" onClick={(e) => e.stopPropagation()}>
             <div className="ws-menu-head">
               <WorkspaceGlyph className="sm" workspace={workspace} />
-              <div>
+              <div className="ws-menu-copy">
                 <strong>{workspace.name}</strong>
-                <div className="title">{workspace.plan}</div>
+                {me.email ? <em>{me.email}</em> : null}
               </div>
             </div>
-            <button onClick={() => setDialog("invite")}>Invite teammates</button>
-            <button onClick={() => setDialog("channel")}>Create a channel</button>
-            <button onClick={() => setDialog("workspace-settings")}>Workspace settings</button>
-            <button onClick={() => openProfile(me.id)}>Profile</button>
-            <button onClick={() => setDialog("help")}>Keyboard shortcuts</button>
-            <hr />
+            <div className="ws-menu-sep" />
+            <button type="button" role="menuitem" onClick={() => setDialog("invite")}>
+              Invite teammates
+            </button>
+            <button type="button" role="menuitem" onClick={() => setDialog("channel")}>
+              Create a channel
+            </button>
+            <button type="button" role="menuitem" onClick={() => setDialog("workspace-settings")}>
+              Workspace settings
+            </button>
+            <button type="button" role="menuitem" onClick={() => openProfile(me.id)}>
+              Profile
+            </button>
+            <button type="button" role="menuitem" onClick={() => setDialog("help")}>
+              Keyboard shortcuts
+            </button>
+            <div className="ws-menu-sep" />
             <button
+              type="button"
+              role="menuitem"
+              className="ws-menu-signout"
               onClick={async () => {
                 await signOut();
               }}
             >
-              Sign out {me.email || "this account"}
+              Sign out
             </button>
           </div>
         </div>
@@ -1254,6 +1280,7 @@ export function WorkspaceApp() {
       {addWorkspace ? (
         <AddWorkspaceDialog
           workspaces={workspaces}
+          pendingInvites={meQuery.data?.pendingInvites ?? []}
           currentWorkspaceId={workspace.id}
           onSignInOther={() => {
             setAddWorkspace(false);
@@ -1280,6 +1307,15 @@ export function WorkspaceApp() {
             const res = await api<{ workspace: Workspace }>("/api/invites/accept", {
               method: "POST",
               body: JSON.stringify({ token }),
+            });
+            if (res.workspace?.id) await switchWorkspace(res.workspace.id);
+            setAddWorkspace(false);
+            await qc.invalidateQueries({ queryKey: keys.me });
+          }}
+          onAcceptInboxInvite={async (inviteId) => {
+            const res = await api<{ workspace: Workspace }>("/api/invites/accept", {
+              method: "POST",
+              body: JSON.stringify({ inviteId }),
             });
             if (res.workspace?.id) await switchWorkspace(res.workspace.id);
             setAddWorkspace(false);

@@ -1,8 +1,7 @@
 /**
- * Env loading strategy:
- *   Local dev  → .env loaded by Expo, APP_ENV defaults to "local"
- *   Archive    → Xcode sets CONFIGURATION=Release, which forces APP_ENV=prod
- *   CLI        → APP_ENV=prod expo prebuild / archive
+ * Env files:
+ *   Local run  → .env.local (APP_ENV=local, Debug `expo run:ios`)
+ *   Archive    → .env.prod  (Xcode Release sets APP_ENV=prod)
  */
 const path = require("path");
 const fs = require("fs");
@@ -10,10 +9,11 @@ const fs = require("fs");
 const LOCAL_APP_ENV = "local";
 const PROD_APP_ENV = "prod";
 const XCODE_RELEASE_CONFIGURATION = "Release";
+const LOCAL_ENV_FILE = ".env.local";
 const REMOTE_API_URL_PREFIX = "https://";
 
 function loadEnvFile(filePath, override = false) {
-  if (!fs.existsSync(filePath)) return;
+  if (!fs.existsSync(filePath)) return false;
   const content = fs.readFileSync(filePath, "utf8");
   content.split("\n").forEach((line) => {
     const match = line.match(/^([^#=]+)=(.*)$/);
@@ -23,34 +23,34 @@ function loadEnvFile(filePath, override = false) {
       if (override || !process.env[key]) process.env[key] = value;
     }
   });
+  return true;
 }
 
-// Xcode exports CONFIGURATION to every script phase, so a Release archive is
-// prod even though .env pins a LAN URL for day-to-day simulator runs.
 const requestedAppEnv = process.env.APP_ENV || LOCAL_APP_ENV;
 const appEnv =
   process.env.CONFIGURATION === XCODE_RELEASE_CONFIGURATION &&
   requestedAppEnv === LOCAL_APP_ENV
     ? PROD_APP_ENV
     : requestedAppEnv;
+const envFile = appEnv === LOCAL_APP_ENV ? LOCAL_ENV_FILE : `.env.${appEnv}`;
+const envPath = path.resolve(__dirname, envFile);
 
-if (appEnv !== LOCAL_APP_ENV) {
-  loadEnvFile(path.resolve(__dirname, `.env.${appEnv}`), true);
+if (!loadEnvFile(envPath, true)) {
+  throw new Error(`[app.config] Missing ${envFile} (needed for EXPO_PUBLIC_API_URL)`);
 }
 
-console.log(
-  `[app.config] APP_ENV=${appEnv} EXPO_PUBLIC_API_URL=${process.env.EXPO_PUBLIC_API_URL}`,
-);
+console.log(`[app.config] APP_ENV=${appEnv} file=${envFile} EXPO_PUBLIC_API_URL=${process.env.EXPO_PUBLIC_API_URL}`);
 
-// A shipped build pointing at a LAN IP fails on device, so fail the build here.
+if (!(process.env.EXPO_PUBLIC_API_URL || "").trim()) {
+  throw new Error(`[app.config] ${envFile} must set EXPO_PUBLIC_API_URL`);
+}
+
 if (
   appEnv !== LOCAL_APP_ENV &&
   !(process.env.EXPO_PUBLIC_API_URL || "").startsWith(REMOTE_API_URL_PREFIX)
 ) {
   throw new Error(
-    `[app.config] Refusing to build APP_ENV=${appEnv} with EXPO_PUBLIC_API_URL=${
-      process.env.EXPO_PUBLIC_API_URL || "(unset)"
-    } — expected an ${REMOTE_API_URL_PREFIX} URL from .env.${appEnv}`,
+    `[app.config] Refusing to build APP_ENV=${appEnv} with EXPO_PUBLIC_API_URL=${process.env.EXPO_PUBLIC_API_URL} — expected an ${REMOTE_API_URL_PREFIX} URL from ${envFile}`,
   );
 }
 

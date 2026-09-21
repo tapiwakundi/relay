@@ -1,70 +1,49 @@
 import { resolve } from "node:path";
-import { config } from "dotenv";
 import react from "@vitejs/plugin-react";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
+import { loadDesktopEnv, resolveDesktopAppEnv } from "./src/env";
 
-for (const name of [".env", ".env.local"] as const) {
-  config({ path: resolve(__dirname, name), override: name === ".env.local" });
-}
+export default defineConfig(({ command }) => {
+  const appEnv = resolveDesktopAppEnv(command);
+  const loaded = loadDesktopEnv(__dirname, appEnv);
+  console.log(`[desktop] APP_ENV=${loaded.appEnv} file=${loaded.file} RELAY_API_URL=${loaded.origin}`);
 
-function packagedApiUrl(command: "build" | "serve") {
-  const configured = (process.env.RELAY_API_URL ?? "").trim().replace(/\/$/, "");
-  if (command !== "build") return configured;
-
-  if (!configured) {
-    throw new Error("RELAY_API_URL is required to package the desktop app (https origin of the production API).");
-  }
-
-  let url: URL;
-  try {
-    url = new URL(configured);
-  } catch {
-    throw new Error("RELAY_API_URL must be a valid URL.");
-  }
-
-  const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
-  if (url.protocol !== "https:" && !local) {
-    throw new Error("RELAY_API_URL must be an https origin for packaged builds.");
-  }
-
-  return configured;
-}
-
-export default defineConfig(({ command }) => ({
-  main: {
-    plugins: [externalizeDepsPlugin({ exclude: ["@relay/shared"] })],
-    define: {
-      RELAY_PACKAGED_API_URL: JSON.stringify(packagedApiUrl(command)),
-    },
-    resolve: {
-      alias: {
-        "@relay/shared": resolve(__dirname, "../../packages/shared/src/index.ts"),
+  return {
+    main: {
+      plugins: [externalizeDepsPlugin({ exclude: ["@relay/shared"] })],
+      define: {
+        RELAY_PACKAGED_API_URL: JSON.stringify(command === "build" ? loaded.origin : ""),
       },
-    },
-  },
-  preload: {
-    plugins: [externalizeDepsPlugin()],
-    build: {
-      rollupOptions: {
-        output: {
-          format: "cjs",
-          entryFileNames: "index.js",
+      resolve: {
+        alias: {
+          "@relay/shared": resolve(__dirname, "../../packages/shared/src/index.ts"),
         },
       },
     },
-  },
-  renderer: {
-    server: {
-      host: "127.0.0.1",
-      port: 5173,
-      strictPort: true,
-    },
-    resolve: {
-      alias: {
-        "@relay/shared": resolve(__dirname, "../../packages/shared/src/index.ts"),
-        "@shared": resolve(__dirname, "src/shared/ipc.ts"),
+    preload: {
+      plugins: [externalizeDepsPlugin()],
+      build: {
+        rollupOptions: {
+          output: {
+            format: "cjs",
+            entryFileNames: "index.js",
+          },
+        },
       },
     },
-    plugins: [react()],
-  },
-}));
+    renderer: {
+      server: {
+        host: "127.0.0.1",
+        port: 5173,
+        strictPort: true,
+      },
+      resolve: {
+        alias: {
+          "@relay/shared": resolve(__dirname, "../../packages/shared/src/index.ts"),
+          "@shared": resolve(__dirname, "src/shared/ipc.ts"),
+        },
+      },
+      plugins: [react()],
+    },
+  };
+});

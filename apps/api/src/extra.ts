@@ -25,6 +25,7 @@ import {
   createNamedChannel,
   createWorkspace,
   inviteLink,
+  listPendingInvitesForEmail,
   openDm,
   selectWorkspace,
   type AuthPerson,
@@ -481,6 +482,14 @@ export function registerExtraRoutes(authed: Hono<Env>, db: AppDb, hub: Hub) {
   );
 
   authed.get(
+    "/invites/inbox",
+    handle(async (c) => {
+      const person = await personFor(db, c.get("userId"));
+      return c.json({ invites: await listPendingInvitesForEmail(db, person.email, person.id) });
+    }),
+  );
+
+  authed.get(
     "/invites",
     handle(async (c) => {
       const userId = c.get("userId");
@@ -522,9 +531,9 @@ export function registerExtraRoutes(authed: Hono<Env>, db: AppDb, hub: Hub) {
     "/invites/accept",
     handle(async (c) => {
       const userId = c.get("userId");
-      const { token } = await c.req.json<{ token: string }>();
+      const { token, inviteId } = await c.req.json<{ token?: string; inviteId?: string }>();
       const person = await personFor(db, userId);
-      const ws = await acceptInvite(db, token, person);
+      const ws = await acceptInvite(db, person, { token, inviteId });
       const members = await getMembers(db, ws.id);
       const joined = members.find((m) => m.userId === userId);
       if (joined) hub.broadcastToWorkspace(ws.id, { type: "member.joined", workspaceId: ws.id, member: joined });

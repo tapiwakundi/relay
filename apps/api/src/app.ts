@@ -13,7 +13,7 @@ import { getAuthUser } from "./auth.js";
 import { sanitizeAuthRequest } from "./auth-forwarded.js";
 import type { Auth } from "./better-auth.js";
 import { message, reaction, user, workspace, workspaceMember } from "./db/schema.js";
-import { registerDeviceToken, unregisterDeviceToken } from "./domain.js";
+import { listPendingInvitesForEmail, registerDeviceToken, unregisterDeviceToken } from "./domain.js";
 import { handle, routeParam } from "./errors.js";
 import { joinHuddle, leaveHuddle } from "./huddle.js";
 import { type Hub } from "./hub.js";
@@ -157,6 +157,7 @@ export function createApp(opts: { db: AppDb; hub: Hub; auth: Auth }) {
         activeWorkspaceId,
         membership,
         workspace: ws ? await toPublicWorkspace(ws) : null,
+        pendingInvites: await listPendingInvitesForEmail(db, urow?.email ?? "", userId),
       };
       return c.json(payload);
     }),

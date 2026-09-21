@@ -229,4 +229,58 @@ describe.skipIf(!process.env.DATABASE_URL)("v1 api integration", () => {
     const [generalRow] = await db.select().from(channel).where(eq(channel.id, general.id));
     expect(generalRow.kind).toBe("public");
   }, 60_000);
+
+  it("surfaces email invites after the recipient creates an account", async () => {
+    const dave: Person = {
+      id: `dave-${suffix}`,
+      name: "Dave Example",
+      email: `Dave-${suffix}@relay.test`,
+      image: null,
+    };
+
+    const ws = await (
+      await api("alice", "/api/workspaces", { method: "POST", body: JSON.stringify({ name: `Inbox ${suffix}` }) })
+    ).json();
+    const workspaceId = ws.workspace.id as string;
+
+    const created = await (
+      await api("alice", "/api/invites", {
+        method: "POST",
+        body: JSON.stringify({ email: dave.email, workspaceId }),
+      })
+    ).json();
+    expect(created.invite.email).toBe(dave.email.toLowerCase());
+    expect(created.invite.token).toBeTruthy();
+
+    users.set("dave", dave);
+    const meRes = await api("dave", "/api/me");
+    expect(meRes.status).toBe(200);
+    const me = await meRes.json();
+    expect(me.user.email).toBe(dave.email.toLowerCase());
+    expect(me.workspaces).toEqual([]);
+    expect(me.pendingInvites).toHaveLength(1);
+    expect(me.pendingInvites[0].id).toBe(created.invite.id);
+    expect(me.pendingInvites[0].workspace.id).toBe(workspaceId);
+    expect(me.pendingInvites[0].workspace.name).toContain("Inbox");
+    expect(me.pendingInvites[0].invitedByName).toBe(alice.name);
+    expect(me.pendingInvites[0].token).toBeUndefined();
+
+    const inbox = await (await api("dave", "/api/invites/inbox")).json();
+    expect(inbox.invites).toHaveLength(1);
+    expect(inbox.invites[0].id).toBe(created.invite.id);
+
+    const hidden = await (await api("mallory", "/api/invites/inbox")).json();
+    expect(hidden.invites).toEqual([]);
+
+    const accepted = await api("dave", "/api/invites/accept", {
+      method: "POST",
+      body: JSON.stringify({ inviteId: me.pendingInvites[0].id }),
+    });
+    expect(accepted.status).toBe(200);
+
+    const after = await (await api("dave", "/api/me")).json();
+    expect(after.pendingInvites).toEqual([]);
+    expect(after.workspaces.some((w: { id: string }) => w.id === workspaceId)).toBe(true);
+    expect(after.activeWorkspaceId).toBe(workspaceId);
+  }, 30_000);
 });

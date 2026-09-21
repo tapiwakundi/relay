@@ -22,6 +22,15 @@ export function isPrivateOrLoopbackHost(host: string) {
  * and Safari opens localhost on the phone. Drop loopback forwards unless the
  * request itself is local/LAN.
  */
+/** Local Google callbacks hit localhost while the Expo proxy cookie is set on LAN. Production keeps the cookie check. */
+export function skipOAuthStateCookieCheck(origin: string) {
+  try {
+    return isPrivateOrLoopbackHost(new URL(origin).host);
+  } catch {
+    return false;
+  }
+}
+
 export function sanitizeAuthRequest(req: Request): Request {
   const host = req.headers.get("host") ?? "";
   const forwardedHost = req.headers.get("x-forwarded-host") ?? "";

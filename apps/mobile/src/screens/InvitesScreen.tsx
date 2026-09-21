@@ -33,6 +33,7 @@ export function InvitesScreen({ navigation }: Props) {
       <ScrollView contentContainerStyle={{ padding: space.md, gap: 12 }}>
         <View style={styles.card}>
           <Text style={styles.label}>Invite by email</Text>
+          <Text style={styles.meta}>They’ll see this invite after they create a Relay account with this email.</Text>
           <TextInput
             style={styles.input}
             autoCapitalize="none"

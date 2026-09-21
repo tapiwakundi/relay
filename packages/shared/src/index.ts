@@ -132,6 +132,13 @@ export type Invite = {
   createdAt: string;
 };
 
+export type InboxInvite = {
+  id: string;
+  workspace: Workspace;
+  invitedByName: string | null;
+  createdAt: string;
+};
+
 export type ActivityItem = {
   id: string;
   kind: "mention" | "reaction" | "thread";
@@ -183,6 +190,7 @@ export type MeResponse = {
   activeWorkspaceId: string | null;
   membership: Member | null;
   workspace: Workspace | null;
+  pendingInvites: InboxInvite[];
 };
 
 export type WsServerEvent =

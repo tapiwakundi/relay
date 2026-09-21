@@ -27,7 +27,6 @@ neon config init   # if neon.ts is missing
 neon deploy
 pnpm install
 cp apps/api/.env.example apps/api/.env
-cp apps/desktop/.env.example apps/desktop/.env
 neon env pull --file apps/api/.env
 pnpm --filter @relay/api db:migrate
 pnpm dev
@@ -59,16 +58,16 @@ pnpm dev:landing
 
 The first time you join a huddle, macOS asks for the microphone and camera. Screen sharing asks for screen recording. Invite links use `relay://invite?invite=…`, which both the desktop app and the mobile app can open.
 
-Mobile (API reachable from the device). `setup:env` writes your LAN IP:
+Mobile (API reachable from the device and simulator). `pnpm ios:device` and `pnpm ios:sim` rewrite `apps/mobile/.env.local` with your Mac's current LAN IP:
 
 ```bash
-pnpm dev:mobile          # physical iPhone
-pnpm dev:mobile:sim      # Device Hub / simulator
+pnpm ios:device          # physical iPhone
+pnpm ios:sim             # simulator
 ```
 
 ## Environment
 
-Each app loads only its own `apps/<app>/.env` (and optional `.env.local`). Copy the matching `.env.example` to start. Do not put secrets in a repo-root `.env`.
+Each app loads only its own env files. Copy the matching `.env.example` to start. Do not put secrets in a repo-root `.env`. Desktop `pnpm dev` writes `apps/desktop/.env.local` if it is missing.
 
 Pull Neon-managed API vars into the API file:
 
@@ -89,17 +88,19 @@ neon env pull --file apps/api/.env
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_ENDPOINT_URL_S3` / `AWS_REGION` | Object Storage (`relay-storage`) |
 | `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | Huddle media (optional) |
 
-### Desktop (`apps/desktop/.env`)
+### Desktop (`apps/desktop/.env.local` / `.env.prod`)
+
+`pnpm dev` loads `.env.local` (`http://localhost:3001`). Packaged builds load `.env.prod` (`https://relay-api-rsck.onrender.com`). A leftover `apps/desktop/.env` is ignored.
 
 | Variable | Purpose |
 |---|---|
-| `RELAY_API_URL` | API origin. Local: `http://localhost:3001`. Packaged builds: `https://relay-api-rsck.onrender.com` |
+| `RELAY_API_URL` | API origin for that env file |
 
-### Mobile (`apps/mobile/.env`)
+### Mobile (`apps/mobile/.env.local` / `.env.prod`)
 
 | Variable | Purpose |
 |---|---|
-| `EXPO_PUBLIC_API_URL` | API origin the phone can reach. `setup:env` writes your LAN IP. |
+| `EXPO_PUBLIC_API_URL` | API origin the phone can reach. Local runs always use your Mac LAN IP (not localhost) so simulator and device both work. |
 | `EXPO_ACCESS_TOKEN` | Optional Expo services token |
 
 The landing page is static and does not need env vars.
@@ -139,7 +140,7 @@ pnpm release:desktop
 
 That signs, notarizes, pushes the current branch, and publishes `Relay-mac-arm64.dmg` to GitHub Releases. The landing-page Download button uses that latest-release URL.
 
-Local unsigned packaging still needs `RELAY_API_URL` in `apps/desktop/.env`. Do not distribute an unsigned DMG publicly.
+Local unsigned packaging uses `apps/desktop/.env.prod`. Do not distribute an unsigned DMG publicly.
 
 ### Smoke-test a signed install
 
