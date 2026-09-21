@@ -6,7 +6,7 @@ import { notifyAccountExpired } from "./session";
 import { getActiveWorkspaceId } from "./query";
 import { createMobileAccountVault, type StoredAccount } from "./account-vault";
 import { accountAuthHeaders } from "./account-headers";
-import { resolveApiOrigin } from "./api-origin";
+import { localGoogleOAuthHeaders, resolveApiOrigin } from "./api-origin";
 
 const FETCH_TIMEOUT_MS = 12_000;
 
@@ -184,15 +184,11 @@ export async function signUpEmail(name: string, email: string, password: string)
 }
 
 export async function signInGoogle() {
+  const headers = localGoogleOAuthHeaders(apiOrigin());
   return liveClient().signIn.social({
     provider: "google",
     callbackURL: "/",
-    fetchOptions: {
-      headers: {
-        "x-forwarded-host": "localhost:3001",
-        "x-forwarded-proto": "http",
-      },
-    },
+    ...(headers ? { fetchOptions: { headers } } : {}),
   });
 }
 

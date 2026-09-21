@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { PRODUCTION_API_ORIGIN, resolveApiOrigin } from "../src/lib/api-origin";
+import {
+  PRODUCTION_API_ORIGIN,
+  localGoogleOAuthHeaders,
+  resolveApiOrigin,
+} from "../src/lib/api-origin";
 
 describe("mobile api origin", () => {
   it("uses the LAN env while Metro is attached", () => {
@@ -31,5 +35,13 @@ describe("mobile api origin", () => {
       resolveApiOrigin({ env: "https://relay.example.com/", dev: false }),
       "https://relay.example.com",
     );
+  });
+
+  it("does not spoof localhost Google callbacks against a public API", () => {
+    assert.equal(localGoogleOAuthHeaders(PRODUCTION_API_ORIGIN), undefined);
+    assert.deepEqual(localGoogleOAuthHeaders("http://192.168.1.82:3001"), {
+      "x-forwarded-host": "localhost:3001",
+      "x-forwarded-proto": "http",
+    });
   });
 });

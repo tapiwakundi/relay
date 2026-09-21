@@ -19,7 +19,15 @@ export function resolveApiOrigin(opts: {
   return PRODUCTION_API_ORIGIN;
 }
 
-function isPublicHttps(origin: string) {
+export function localGoogleOAuthHeaders(origin: string): Record<string, string> | undefined {
+  if (isPublicHttps(origin)) return undefined;
+  return {
+    "x-forwarded-host": "localhost:3001",
+    "x-forwarded-proto": "http",
+  };
+}
+
+export function isPublicHttps(origin: string) {
   try {
     const url = new URL(origin);
     if (url.protocol !== "https:") return false;

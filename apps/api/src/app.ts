@@ -10,6 +10,7 @@ import {
   workspaceHeader,
 } from "./access.js";
 import { getAuthUser } from "./auth.js";
+import { sanitizeAuthRequest } from "./auth-forwarded.js";
 import type { Auth } from "./better-auth.js";
 import { message, reaction, user, workspace, workspaceMember } from "./db/schema.js";
 import { registerDeviceToken, unregisterDeviceToken } from "./domain.js";
@@ -95,16 +96,7 @@ export function createApp(opts: { db: AppDb; hub: Hub; auth: Auth }) {
   app.get("/", (c) => c.html(desktopHandoffHtml));
   app.get("/desktop/callback", (c) => c.html(desktopHandoffHtml));
 
-  app.all("/api/auth/*", async (c) => {
-    const path = c.req.path;
-    const host = c.req.header("host") ?? "";
-    const localHost = host === "localhost:3001" || host === "127.0.0.1:3001";
-    if (path.endsWith("/expo-authorization-proxy") && host && !localHost) {
-      const search = new URL(c.req.url, "http://localhost").search;
-      return c.redirect(`http://localhost:3001${path}${search}`);
-    }
-    return auth.handler(c.req.raw);
-  });
+  app.all("/api/auth/*", async (c) => auth.handler(sanitizeAuthRequest(c.req.raw)));
 
   app.get("/api/health", (c) =>
     c.json({
