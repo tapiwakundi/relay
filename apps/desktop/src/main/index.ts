@@ -20,7 +20,8 @@ import { installCapture, prepareMedia } from "./capture";
 import { installDeepLinks, takePendingInvites } from "./deeplink";
 import { installNotifications, setActiveChannel, setBadge } from "./notifications";
 import { closeRealtime, openRealtime, sendRealtime } from "./realtime";
-import { installAutoUpdater } from "./updater";
+import { installApplicationMenu } from "./menu";
+import { promptCheckForUpdates, installAutoUpdater } from "./updater";
 import { getMainWindow, setMainWindow } from "./window";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -38,6 +39,9 @@ authClient.setupMain({
 installDeepLinks(getMainWindow);
 installNotifications(getMainWindow);
 installAutoUpdater(getMainWindow);
+installApplicationMenu(() => {
+  void promptCheckForUpdates();
+});
 
 function authMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {

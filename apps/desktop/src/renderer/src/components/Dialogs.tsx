@@ -337,11 +337,16 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
       if (active) setUpdate(next);
     });
     const stop = window.relayDesktop.onUpdateState(setUpdate);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
     return () => {
       active = false;
       stop();
+      window.removeEventListener("keydown", onKey);
     };
-  }, []);
+  }, [onClose]);
 
   async function updateAction() {
     if (!update) return;

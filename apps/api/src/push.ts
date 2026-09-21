@@ -40,6 +40,11 @@ function bodyPreview(message: ChatMessage) {
   return text.slice(0, 180);
 }
 
+function ticketList(data: ExpoTicket | ExpoTicket[] | undefined) {
+  if (!data) return [];
+  return Array.isArray(data) ? data : [data];
+}
+
 export async function notifyUnreadPush(
   db: AppDb,
   hub: Hub,
@@ -47,19 +52,23 @@ export async function notifyUnreadPush(
   message: ChatMessage,
   send: PushSender = fetch,
 ) {
-  const offline = bumps.filter((bump) => !hub.isOnline(bump.userId) && !hub.isViewing(bump.userId, bump.channelId));
-  if (!offline.length) return { sent: 0, removed: [] as string[] };
+  // Desktop/mobile sockets keep the user "online". Skip only when they are
+  // looking at this channel; otherwise the phone never gets a banner.
+  const targets = bumps.filter((bump) => !hub.isViewing(bump.userId, bump.channelId));
+  if (!targets.length) return { sent: 0, removed: [] as string[] };
 
-  const userIds = [...new Set(offline.map((bump) => bump.userId))];
+  const userIds = [...new Set(targets.map((bump) => bump.userId))];
   const rows = await db.select().from(deviceToken).where(inArray(deviceToken.userId, userIds));
   if (!rows.length) return { sent: 0, removed: [] as string[] };
 
-  const bumpByUser = new Map(offline.map((bump) => [bump.userId, bump]));
+  const bumpByUser = new Map(targets.map((bump) => [bump.userId, bump]));
   const messages: {
     to: string;
     title: string;
     body: string;
     sound: "default";
+    interruptionLevel: "active";
+    _displayInForeground: true;
     data: PushNotificationData;
   }[] = [];
   for (const row of rows) {
@@ -70,6 +79,8 @@ export async function notifyUnreadPush(
       title: message.userName || "Relay",
       body: bodyPreview(message),
       sound: "default",
+      interruptionLevel: "active",
+      _displayInForeground: true,
       data: {
         accountId: row.userId,
         workspaceId: bump.workspaceId,
@@ -89,12 +100,17 @@ export async function notifyUnreadPush(
       headers: expoHeaders(),
       body: JSON.stringify(chunk),
     });
-    if (!res.ok) continue;
-    const payload = (await res.json()) as { data?: ExpoTicket[] };
-    for (const [index, ticket] of (payload.data ?? []).entries()) {
+    if (!res.ok) {
+      console.error("[push] expo send failed", res.status);
+      continue;
+    }
+    const payload = (await res.json()) as { data?: ExpoTicket | ExpoTicket[] };
+    for (const [index, ticket] of ticketList(payload.data).entries()) {
       const token = chunk[index]?.to ?? "";
       if (ticket.status === "error" && ticket.details?.error === "DeviceNotRegistered") {
         invalid.add(token);
+      } else if (ticket.status === "error") {
+        console.error("[push] expo ticket error", ticket.message, ticket.details);
       } else if (ticket.status === "ok" && ticket.id) {
         ticketToToken.set(ticket.id, token);
       }
@@ -110,12 +126,17 @@ export async function notifyUnreadPush(
         headers: expoHeaders(),
         body: JSON.stringify({ ids }),
       });
-      if (!res.ok) continue;
+      if (!res.ok) {
+        console.error("[push] expo receipts failed", res.status);
+        continue;
+      }
       const payload = (await res.json()) as { data?: Record<string, ExpoReceipt> };
       for (const [ticketId, receipt] of Object.entries(payload.data ?? {})) {
         if (receipt.status === "error" && receipt.details?.error === "DeviceNotRegistered") {
           const token = ticketToToken.get(ticketId);
           if (token) invalid.add(token);
+        } else if (receipt.status === "error") {
+          console.error("[push] expo receipt error", receipt.message, receipt.details);
         }
       }
     }

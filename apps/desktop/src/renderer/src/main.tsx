@@ -2,10 +2,11 @@ import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { WorkspaceApp } from "./App";
+import { HelpDialog } from "./components/Dialogs";
 import { LoginScreen } from "./components/LoginScreen";
 import { AccountProvider } from "./lib/accounts";
 import { queryClient, setActiveAccountId } from "./lib/query";
-import type { AccountsSnapshot, NavigatePayload } from "../../shared/ipc";
+import { relayChannels, type AccountsSnapshot, type NavigatePayload } from "../../shared/ipc";
 import "./styles/slack.css";
 
 function storeInvite(token: string) {
@@ -15,6 +16,7 @@ function storeInvite(token: string) {
 
 function Root() {
   const [ready, setReady] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [snapshot, setSnapshot] = useState<AccountsSnapshot>({
     accounts: [],
     activeAccountId: null,
@@ -26,10 +28,12 @@ function Root() {
   setActiveAccountId(snapshot.activeAccountId);
 
   useEffect(() => {
+    const openUpdates = () => setHelpOpen(true);
+    window.addEventListener(relayChannels.openUpdates, openUpdates);
     const desktop = window.relayDesktop;
     if (!desktop) {
       setReady(true);
-      return;
+      return () => window.removeEventListener(relayChannels.openUpdates, openUpdates);
     }
     let cancel = false;
     const stopAuth = desktop.onAuthenticated(() => {
@@ -51,6 +55,7 @@ function Root() {
         window.dispatchEvent(new Event("relay-nav"));
       }
     });
+    const stopUpdates = desktop.onOpenUpdates(openUpdates);
     const queryInvite = new URLSearchParams(window.location.search).get("invite");
     if (queryInvite) sessionStorage.setItem("relay-invite", queryInvite);
 
@@ -72,6 +77,8 @@ function Root() {
       stopAccounts();
       stopInvite();
       stopNav();
+      stopUpdates();
+      window.removeEventListener(relayChannels.openUpdates, openUpdates);
     };
   }, []);
 
@@ -84,22 +91,34 @@ function Root() {
     prevActive.current = snapshot.activeAccountId;
   }, [snapshot.activeAccountId]);
 
-  if (!ready) return <div style={{ height: "100%", background: "#1A5FB4" }} />;
-  if (!window.relayDesktop) {
+  if (!window.relayDesktop && ready) {
     return (
       <div style={{ height: "100%", background: "#1A5FB4", color: "#fff", padding: 32, fontFamily: "sans-serif" }}>
         Relay couldn’t reach the desktop app. Quit this window and run pnpm dev again.
       </div>
     );
   }
-  if (snapshot.adding) {
-    return <LoginScreen add onCancel={() => void window.relayDesktop.cancelAddAccount()} />;
+
+  let screen;
+  if (!ready || !window.relayDesktop) {
+    screen = <div style={{ height: "100%", background: "#1A5FB4" }} />;
+  } else if (snapshot.adding) {
+    screen = <LoginScreen add onCancel={() => void window.relayDesktop.cancelAddAccount()} />;
+  } else if (!snapshot.activeAccountId) {
+    screen = <LoginScreen />;
+  } else {
+    screen = (
+      <AccountProvider snapshot={snapshot}>
+        <WorkspaceApp key={snapshot.activeAccountId} />
+      </AccountProvider>
+    );
   }
-  if (!snapshot.activeAccountId) return <LoginScreen />;
+
   return (
-    <AccountProvider snapshot={snapshot}>
-      <WorkspaceApp key={snapshot.activeAccountId} />
-    </AccountProvider>
+    <>
+      {screen}
+      {helpOpen && window.relayDesktop ? <HelpDialog onClose={() => setHelpOpen(false)} /> : null}
+    </>
   );
 }
 

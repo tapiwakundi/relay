@@ -66,10 +66,54 @@ describe("multi-account push delivery", () => {
     expect(payload.every((item: { to: string }) => item.to === "ExponentPushToken[shared]")).toBe(true);
   });
 
-  it("skips online users and removes unregistered tokens", async () => {
+  it("still sends to websocket-online users who are not viewing the channel", async () => {
     const hub = new Hub();
     const online = { readyState: 1, send() {}, on() {} };
     hub.add(online as never, "alice");
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: async () => [{ userId: "alice", token: "ExponentPushToken[alice]" }],
+        }),
+      }),
+    };
+    const send = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).includes("push/send")) {
+        const body = JSON.parse(String(init?.body)) as { to: string }[];
+        return {
+          ok: true,
+          json: async () => ({ data: body.map(() => ({ status: "ok", id: "t1" })) }),
+        };
+      }
+      return { ok: true, json: async () => ({ data: {} }) };
+    });
+
+    const result = await notifyUnreadPush(db as never, hub, bumps("alice"), message, send as never);
+    expect(result.sent).toBe(1);
+    expect(send.mock.calls[0]?.[0]).toContain("push/send");
+  });
+
+  it("skips users currently viewing the channel", async () => {
+    const hub = new Hub();
+    const ws = { readyState: 1, send() {}, on() {} };
+    const client = hub.add(ws as never, "alice");
+    hub.subscribe(client, "ch-1");
+    const send = vi.fn();
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: async () => [{ userId: "alice", token: "ExponentPushToken[alice]" }],
+        }),
+      }),
+    };
+
+    const result = await notifyUnreadPush(db as never, hub, bumps("alice"), message, send as never);
+    expect(result.sent).toBe(0);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("removes unregistered tokens", async () => {
+    const hub = new Hub();
     const deleted: string[][] = [];
     const db = {
       select: () => ({

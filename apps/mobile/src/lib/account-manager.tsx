@@ -16,7 +16,13 @@ import {
   signOutClient,
 } from "./auth";
 import { attachQueryPersistence, detachQueryPersistence, dropQueryPersistence } from "./query-persist";
-import { reconnectAccountSockets, addRealtimeListener, sendRealtime, syncAccountSockets } from "./realtime-hub";
+import {
+  reconnectAccountSockets,
+  addRealtimeListener,
+  sendRealtime,
+  syncAccountSockets,
+  closeAccountSockets,
+} from "./realtime-hub";
 import { onAccountExpired } from "./session";
 
 type AccountCtx = {
@@ -86,7 +92,8 @@ export async function currentPushToken() {
     const device = await Notifications.getExpoPushTokenAsync({ projectId });
     pushToken = device.data;
     return pushToken;
-  } catch {
+  } catch (err) {
+    console.warn("[push] failed to get Expo token", err);
     return null;
   }
 }
@@ -99,8 +106,8 @@ async function registerPush(accountId: string) {
       method: "POST",
       body: JSON.stringify({ token, platform: Platform.OS }),
     }, accountId);
-  } catch {
-    /* push registration is best-effort */
+  } catch (err) {
+    console.warn("[push] failed to register token", err);
   }
 }
 
@@ -258,6 +265,10 @@ export function AccountManager({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
+      if (state === "background") {
+        closeAccountSockets();
+        return;
+      }
       if (state !== "active") return;
       void (async () => {
         const ids = (await accountVault.list()).map((account) => account.id);

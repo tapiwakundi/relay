@@ -152,7 +152,7 @@ NOTES="$(printf '%s\n' \
   "Relay ${VERSION} for Apple Silicon." \
   "" \
   "Download: https://github.com/tapiwakundi/relay/releases/latest/download/Relay-mac-arm64.dmg" \
-  "Existing installations can update from Help → Check for updates." \
+  "Existing installations can update from Relay → Check for Updates." \
   "" \
   "Requires macOS 12+ on Apple Silicon. The app talks to ${PRODUCTION_API_URL}.")"
 

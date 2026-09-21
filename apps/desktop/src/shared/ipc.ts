@@ -39,6 +39,7 @@ export const relayChannels = {
   downloadUpdate: "relay:update-download",
   installUpdate: "relay:update-install",
   updateState: "relay:update-state",
+  openUpdates: "relay:open-updates",
 } as const;
 
 export type FormPart =
@@ -156,4 +157,5 @@ export interface RelayDesktop {
   downloadUpdate(): Promise<void>;
   installUpdate(): Promise<void>;
   onUpdateState(callback: (state: UpdateState) => void): () => void;
+  onOpenUpdates(callback: () => void): () => void;
 }

@@ -1,6 +1,7 @@
 import { app, ipcMain, type BrowserWindow } from "electron";
 import electronUpdater from "electron-updater";
 import { relayChannels, type UpdateState } from "../shared/ipc";
+import { sendToRenderer } from "./window";
 
 const { autoUpdater } = electronUpdater;
 
@@ -35,6 +36,14 @@ async function checkForUpdates() {
     publish({ status: "error", message: errorMessage(error) });
   }
   return state;
+}
+
+const inFlight: UpdateState["status"][] = ["checking", "available", "downloading", "downloaded"];
+
+export async function promptCheckForUpdates() {
+  sendToRenderer(relayChannels.openUpdates);
+  if (inFlight.includes(state.status)) return state;
+  return checkForUpdates();
 }
 
 async function downloadUpdate() {

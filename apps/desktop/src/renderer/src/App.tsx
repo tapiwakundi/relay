@@ -13,6 +13,7 @@ import type {
   WsServerEvent,
 } from "@relay/shared";
 import { Room, RoomEvent } from "livekit-client";
+import { relayChannels } from "../../shared/ipc";
 import { api, signOut } from "./lib/auth";
 import { connectWs } from "./lib/ws";
 import { useAccounts } from "./lib/accounts";
@@ -26,7 +27,6 @@ import {
   AddWorkspaceDialog,
   ChannelDialog,
   ChannelInfoDialog,
-  HelpDialog,
   InviteDialog,
   MembersDialog,
   NewMessagePane,
@@ -65,7 +65,6 @@ type Dialog =
   | "invite"
   | "channel"
   | "dm"
-  | "help"
   | "members"
   | "info"
   | "self"
@@ -73,6 +72,10 @@ type Dialog =
   | "workspace-settings"
   | "switcher"
   | null;
+
+function openHelpAndUpdates() {
+  window.dispatchEvent(new Event(relayChannels.openUpdates));
+}
 
 export function WorkspaceApp() {
   const qc = useQueryClient();
@@ -744,7 +747,7 @@ export function WorkspaceApp() {
           />
         </div>
         <div className="top-help">
-          <button className="icon-btn" onClick={() => setDialog("help")}>
+          <button className="icon-btn" aria-label="Help and updates" onClick={openHelpAndUpdates}>
             <Help />
           </button>
         </div>
@@ -1201,7 +1204,6 @@ export function WorkspaceApp() {
       {dialog === "channel" && (
         <ChannelDialog onCreate={createChannel} onClose={() => setDialog(null)} />
       )}
-      {dialog === "help" && <HelpDialog onClose={() => setDialog(null)} />}
       {dialog === "members" && <MembersDialog members={members} onClose={() => setDialog(null)} />}
       {dialog === "info" && active && (
         <ChannelInfoDialog
@@ -1283,7 +1285,7 @@ export function WorkspaceApp() {
             <button type="button" role="menuitem" onClick={() => openProfile(me.id)}>
               Profile
             </button>
-            <button type="button" role="menuitem" onClick={() => setDialog("help")}>
+            <button type="button" role="menuitem" onClick={openHelpAndUpdates}>
               Keyboard shortcuts
             </button>
             <div className="ws-menu-sep" />

@@ -68,6 +68,7 @@ const relayDesktop = {
   downloadUpdate: () => ipcRenderer.invoke(relayChannels.downloadUpdate) as Promise<void>,
   installUpdate: () => ipcRenderer.invoke(relayChannels.installUpdate) as Promise<void>,
   onUpdateState: (callback: (state: UpdateState) => void) => subscribe(relayChannels.updateState, callback),
+  onOpenUpdates: (callback: () => void) => subscribe(relayChannels.openUpdates, callback),
 };
 
 contextBridge.exposeInMainWorld("relayDesktop", relayDesktop satisfies RelayDesktop);
