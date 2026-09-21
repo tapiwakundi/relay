@@ -18,7 +18,17 @@ import { api, signOut } from "./lib/auth";
 import { connectWs } from "./lib/ws";
 import { useAccounts } from "./lib/accounts";
 import { Avatar } from "./components/Avatar";
-import { applyWsEvent, keys, setActiveWorkspaceId, type Bootstrap, type Me, type MeResponse } from "./lib/query";
+import {
+  applyWsEvent,
+  clearChannelUnread,
+  getViewedChannelId,
+  keys,
+  setActiveWorkspaceId,
+  setViewedChannelId,
+  type Bootstrap,
+  type Me,
+  type MeResponse,
+} from "./lib/query";
 import { Composer } from "./components/Composer";
 import { MessageList } from "./components/MessageList";
 import { CreateWorkspaceScreen } from "./components/CreateWorkspaceScreen";
@@ -115,6 +125,7 @@ export function WorkspaceApp() {
   const workspaces = meQuery.data?.workspaces ?? [];
   meIdRef.current = me?.id ?? null;
   activeIdRef.current = activeId;
+  setViewedChannelId(activeId);
 
   useEffect(() => {
     setActiveWorkspaceId(meQuery.data?.activeWorkspaceId ?? workspace?.id ?? null);
@@ -293,9 +304,7 @@ export function WorkspaceApp() {
       if (!boot) return boot;
       return {
         ...boot,
-        channels: boot.channels.map((c) =>
-          c.id === activeId ? { ...c, huddle, unreadCount: 0, mentionCount: 0 } : c,
-        ),
+        channels: boot.channels.map((c) => (c.id === activeId ? { ...c, huddle } : c)),
       };
     });
   }, [messagesQuery.data?.huddle, activeId, qc]);
@@ -324,12 +333,18 @@ export function WorkspaceApp() {
 
   useEffect(() => {
     if (!activeId) return;
+    clearChannelUnread(activeId);
     wsRef.current?.send({ type: "subscribe", channelId: activeId });
     setThread(null);
     return () => {
       wsRef.current?.send({ type: "unsubscribe", channelId: activeId });
     };
   }, [activeId]);
+
+  useEffect(() => {
+    const openId = getViewedChannelId();
+    if (openId) clearChannelUnread(openId);
+  }, [bootQuery.dataUpdatedAt]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -393,10 +408,12 @@ export function WorkspaceApp() {
     };
     await qc.cancelQueries({ queryKey: key });
     qc.setQueryData<{ messages: ChatMessage[] }>(key, (old) => ({
+      ...old,
       messages: [...(old?.messages ?? []), optimistic],
     }));
     const fail = () => {
       qc.setQueryData<{ messages: ChatMessage[] }>(key, (old) => ({
+        ...old,
         messages: (old?.messages ?? []).map((m) =>
           m.clientId === clientId && m.pending ? { ...m, pending: false, failed: true } : m,
         ),

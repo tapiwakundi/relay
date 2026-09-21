@@ -75,7 +75,9 @@ export async function createChatMessage(
 
     hub.broadcastToChannel(opts.channelId, { type: "message.created", message: hydrated });
     const names = await mentionMap(db, access.workspaceId);
-    const bumps = await bumpUnread(db, hub, opts.channelId, opts.userId, extractMentions(text, names));
+    const bumps = await bumpUnread(db, hub, opts.channelId, opts.userId, extractMentions(text, names), {
+      threadReply: Boolean(opts.parentId),
+    });
     await notifyUnreadPush(db, hub, bumps, hydrated);
     return { ok: true, message: hydrated };
   } catch (err) {

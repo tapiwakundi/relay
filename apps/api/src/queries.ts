@@ -258,10 +258,12 @@ function decodeCursor(cursor: string): [Date | null, string | null] {
 }
 
 export async function markRead(db: AppDb, channelId: string, userId: string) {
-  await db
+  const [row] = await db
     .update(channelMember)
     .set({ lastReadAt: new Date(), unreadCount: 0, mentionCount: 0 })
-    .where(and(eq(channelMember.channelId, channelId), eq(channelMember.userId, userId), isNull(channelMember.leftAt)));
+    .where(and(eq(channelMember.channelId, channelId), eq(channelMember.userId, userId), isNull(channelMember.leftAt)))
+    .returning({ workspaceId: channelMember.workspaceId });
+  return row ?? null;
 }
 
 export async function loadWorkspaceChannels(db: AppDb, wsId: string, userId: string): Promise<Channel[]> {

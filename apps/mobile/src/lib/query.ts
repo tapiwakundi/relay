@@ -25,6 +25,53 @@ export function getActiveWorkspaceId() {
   return activeWorkspaceId;
 }
 
+let viewedChannelId: string | null = null;
+
+export function setViewedChannelId(id: string | null) {
+  viewedChannelId = id;
+}
+
+export function getViewedChannelId() {
+  return viewedChannelId;
+}
+
+export function clearChannelUnread(channelId: string) {
+  writeChannelUnread(channelId, 0, 0);
+}
+
+function writeChannelUnread(channelId: string, unreadCount: number, mentionCount: number) {
+  const matches = queryClient.getQueriesData<Bootstrap>({ queryKey: ["bootstrap"] });
+  const dirty = matches.some(([, boot]) => {
+    const current = boot?.channels.find((c) => c.id === channelId);
+    return Boolean(current && (current.unreadCount !== unreadCount || current.mentionCount !== mentionCount));
+  });
+  if (!dirty) return;
+  queryClient.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
+    if (!boot) return boot;
+    const current = boot.channels.find((c) => c.id === channelId);
+    if (!current || (current.unreadCount === unreadCount && current.mentionCount === mentionCount)) return boot;
+    return {
+      ...boot,
+      channels: boot.channels.map((c) => (c.id === channelId ? { ...c, unreadCount, mentionCount } : c)),
+    };
+  });
+}
+
+function upsertLoadedMessage<T extends { messages: ChatMessage[] }>(old: T | undefined, message: ChatMessage): T | undefined {
+  if (!old) return old;
+  const list = old.messages;
+  const byClient = message.clientId
+    ? list.findIndex((m) => m.clientId === message.clientId || m.id === message.clientId)
+    : -1;
+  if (byClient >= 0) {
+    const next = list.slice();
+    next[byClient] = { ...message, pending: false };
+    return { ...old, messages: next };
+  }
+  if (list.some((m) => m.id === message.id)) return old;
+  return { ...old, messages: [...list, message] };
+}
+
 export const keys = {
   me: ["me"] as const,
   bootstrap: (wsId: string) => ["bootstrap", wsId] as const,
@@ -68,27 +115,17 @@ function sameWorkspace(boot: Bootstrap | undefined, workspaceId?: string) {
   return boot.workspace.id === workspaceId;
 }
 
-export function applyWsEvent(ev: WsServerEvent, meId: string) {
+export function applyWsEvent(ev: WsServerEvent, _meId: string) {
   if (ev.type === "message.created") {
     const parentId = ev.message.parentId ?? null;
-    queryClient.setQueryData<{ messages: ChatMessage[] }>(keys.messages(ev.message.channelId, parentId), (old) => {
-      const list = old?.messages ?? [];
-      const byClient = ev.message.clientId
-        ? list.findIndex((m) => m.clientId === ev.message.clientId || m.id === ev.message.clientId)
-        : -1;
-      const byId = list.findIndex((m) => m.id === ev.message.id);
-      if (byClient >= 0) {
-        const next = list.slice();
-        next[byClient] = { ...ev.message, pending: false };
-        return { messages: next };
-      }
-      if (byId >= 0) return old;
-      return { messages: [...list, ev.message] };
-    });
+    queryClient.setQueryData<{ messages: ChatMessage[] }>(keys.messages(ev.message.channelId, parentId), (old) =>
+      upsertLoadedMessage(old, ev.message),
+    );
     if (parentId) {
       queryClient.setQueryData<{ messages: ChatMessage[] }>(keys.messages(ev.message.channelId, null), (old) => {
         if (!old) return old;
         return {
+          ...old,
           messages: old.messages.map((m) =>
             m.id === parentId
               ? {
@@ -104,28 +141,17 @@ export function applyWsEvent(ev: WsServerEvent, meId: string) {
         };
       });
     }
-    queryClient.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
-      if (!boot) return boot;
-      return {
-        ...boot,
-        channels: boot.channels.map((c) =>
-          c.id === ev.message.channelId && ev.message.userId !== meId && !parentId
-            ? { ...c, unreadCount: c.unreadCount + 1 }
-            : c,
-        ),
-      };
-    });
   }
   if (ev.type === "message.updated") {
     queryClient.setQueryData(keys.message(ev.message.id), ev.message);
     const parentId = ev.message.parentId ?? null;
     queryClient.setQueryData<{ messages: ChatMessage[] }>(keys.messages(ev.message.channelId, parentId), (old) => {
       if (!old) return old;
-      return { messages: old.messages.map((m) => (m.id === ev.message.id ? ev.message : m)) };
+      return { ...old, messages: old.messages.map((m) => (m.id === ev.message.id ? ev.message : m)) };
     });
     queryClient.setQueryData<{ messages: ChatMessage[] }>(keys.messages(ev.message.channelId, null), (old) => {
       if (!old) return old;
-      return { messages: old.messages.map((m) => (m.id === ev.message.id ? { ...m, ...ev.message } : m)) };
+      return { ...old, messages: old.messages.map((m) => (m.id === ev.message.id ? { ...m, ...ev.message } : m)) };
     });
   }
   if (ev.type === "message.deleted") {
@@ -134,6 +160,7 @@ export function applyWsEvent(ev: WsServerEvent, meId: string) {
       (old) =>
         old
           ? {
+              ...old,
               messages: old.messages.map((m) =>
                 m.id === ev.messageId ? { ...m, deleted: true, body: "" } : m,
               ),
@@ -160,15 +187,8 @@ export function applyWsEvent(ev: WsServerEvent, meId: string) {
     });
   }
   if (ev.type === "unread") {
-    queryClient.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
-      if (!boot) return boot;
-      return {
-        ...boot,
-        channels: boot.channels.map((c) =>
-          c.id === ev.channelId ? { ...c, unreadCount: ev.unreadCount, mentionCount: ev.mentionCount } : c,
-        ),
-      };
-    });
+    const viewing = ev.channelId === viewedChannelId;
+    writeChannelUnread(ev.channelId, viewing ? 0 : ev.unreadCount, viewing ? 0 : ev.mentionCount);
   }
   if (ev.type === "channel.created") {
     queryClient.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {

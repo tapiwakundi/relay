@@ -5,7 +5,17 @@ import * as Notifications from "expo-notifications";
 import type { Channel, ChatMessage, Member, Workspace, WorkspaceSummary, WsClientEvent } from "@relay/shared";
 import { useAccounts } from "./account-manager";
 import { api } from "./auth";
-import { applyWsEvent, keys, queryClient, setActiveWorkspaceId, type Bootstrap, type Me, type MeResponse } from "./query";
+import {
+  applyWsEvent,
+  clearChannelUnread,
+  getViewedChannelId,
+  keys,
+  queryClient,
+  setActiveWorkspaceId,
+  type Bootstrap,
+  type Me,
+  type MeResponse,
+} from "./query";
 import { peekPendingNav } from "./pending-nav";
 import { addRealtimeListener, sendRealtime } from "./realtime-hub";
 import { colors } from "../ui/theme";
@@ -58,6 +68,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       applyWsEvent(ev, meId);
     });
   }, [meId, activeAccountId]);
+
+  useEffect(() => {
+    const openId = getViewedChannelId();
+    if (openId) clearChannelUnread(openId);
+  }, [bootQ.dataUpdatedAt]);
 
   useEffect(() => {
     const pending = peekPendingNav();

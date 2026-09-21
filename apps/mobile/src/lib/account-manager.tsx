@@ -45,9 +45,14 @@ async function summariesFromVault(): Promise<{ accounts: RelayAccountSummary[]; 
   return { accounts: Object.values(index.accounts), activeAccountId: index.activeAccountId };
 }
 
+const refreshGen = new Map<string, number>();
+
 async function refreshOne(accountId: string) {
+  const gen = (refreshGen.get(accountId) ?? 0) + 1;
+  refreshGen.set(accountId, gen);
   try {
     const me = await api<MeResponse>("/api/me", undefined, accountId);
+    if (refreshGen.get(accountId) !== gen) return;
     const totals = unreadTotals(me.workspaces ?? []);
     await accountVault.update(accountId, {
       email: me.user.email,

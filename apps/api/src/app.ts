@@ -26,7 +26,6 @@ import {
   listWorkspaceSummaries,
   loadChannelMessages,
   loadWorkspaceChannels,
-  markRead,
   toPublicWorkspace,
   type AppDb,
 } from "./queries.js";
@@ -191,7 +190,6 @@ export function createApp(opts: { db: AppDb; hub: Hub; auth: Auth }) {
       const cursor = c.req.query("cursor") ?? null;
       const limit = Number(c.req.query("limit") ?? 80);
       await requireChannelMember(db, channelId, c.get("userId"));
-      await markRead(db, channelId, c.get("userId"));
       const page = await loadChannelMessages(db, channelId, { parentId, cursor, limit });
       const huddleState = await hydrateHuddle(db, channelId);
       return c.json({ ...page, huddle: huddleState });

@@ -67,9 +67,13 @@ async function fetchMe(accountId: string): Promise<MeResponse | null> {
   }
 }
 
+const refreshGen = new Map<string, number>();
+
 export async function refreshSummary(accountId: string) {
+  const gen = (refreshGen.get(accountId) ?? 0) + 1;
+  refreshGen.set(accountId, gen);
   const me = await fetchMe(accountId);
-  if (!me) return;
+  if (refreshGen.get(accountId) !== gen || !me) return;
   const totals = unreadTotals(me.workspaces ?? []);
   getAccountVault().update(accountId, {
     email: me.user.email,

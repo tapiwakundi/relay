@@ -3,6 +3,7 @@ import type { ChatMessage, Huddle, WsServerEvent } from "@relay/shared";
 import { WebSocket } from "ws";
 import type { AppDb } from "./db/index.js";
 import { channelMember } from "./db/schema.js";
+import { markRead } from "./queries.js";
 
 type Client = {
   ws: WebSocket;
@@ -105,28 +106,63 @@ export class Hub {
   }
 }
 
+/** Who should receive a channel badge for a new message. Viewers and the author are excluded. Thread replies badge only when they mention someone. */
+export function selectUnreadTargets(opts: {
+  memberIds: string[];
+  authorId: string;
+  viewingIds: Iterable<string>;
+  mentionedUserIds: string[];
+  threadReply?: boolean;
+}): { mention: string[]; other: string[] } {
+  const viewing = new Set(opts.viewingIds);
+  const mentionAll = opts.mentionedUserIds.includes("*");
+  const mentionSet = new Set(opts.mentionedUserIds.filter((id) => id !== "*"));
+  const mention: string[] = [];
+  const other: string[] = [];
+  for (const userId of opts.memberIds) {
+    if (userId === opts.authorId || viewing.has(userId)) continue;
+    const mentioned = mentionAll || mentionSet.has(userId);
+    if (opts.threadReply && !mentioned) continue;
+    if (mentioned) mention.push(userId);
+    else other.push(userId);
+  }
+  return { mention, other };
+}
+
+export function broadcastUnread(hub: Hub, bump: UnreadBump) {
+  hub.broadcastToUser(bump.userId, {
+    type: "unread",
+    channelId: bump.channelId,
+    workspaceId: bump.workspaceId,
+    unreadCount: bump.unreadCount,
+    mentionCount: bump.mentionCount,
+  });
+}
+
 export async function bumpUnread(
   db: AppDb,
   hub: Hub,
   channelId: string,
   authorId: string,
   mentionedUserIds: string[],
+  opts?: { threadReply?: boolean },
 ): Promise<UnreadBump[]> {
   const members = await db
     .select()
     .from(channelMember)
     .where(and(eq(channelMember.channelId, channelId), isNull(channelMember.leftAt)));
-  const skip = new Set<string>([authorId]);
-  for (const m of members) {
-    if (hub.isViewing(m.userId, channelId)) skip.add(m.userId);
-  }
-  const mentionAll = mentionedUserIds.includes("*");
-  const mentionSet = new Set(mentionedUserIds.filter((id) => id !== "*"));
-  const targets = members.filter((m) => !skip.has(m.userId));
+  const viewingIds = members.filter((m) => hub.isViewing(m.userId, channelId)).map((m) => m.userId);
+  const picked = selectUnreadTargets({
+    memberIds: members.map((m) => m.userId),
+    authorId,
+    viewingIds,
+    mentionedUserIds,
+    threadReply: opts?.threadReply,
+  });
+  const mentionedTargets = picked.mention.filter((id) => !hub.isViewing(id, channelId));
+  const otherTargets = picked.other.filter((id) => !hub.isViewing(id, channelId));
+  const targets = [...mentionedTargets, ...otherTargets];
   if (!targets.length) return [];
-
-  const mentionedTargets = targets.filter((m) => mentionAll || mentionSet.has(m.userId)).map((m) => m.userId);
-  const otherTargets = targets.filter((m) => !mentionedTargets.includes(m.userId)).map((m) => m.userId);
 
   if (otherTargets.length) {
     await db
@@ -159,9 +195,22 @@ export async function bumpUnread(
   const fresh = await db
     .select()
     .from(channelMember)
-    .where(and(eq(channelMember.channelId, channelId), inArray(channelMember.userId, targets.map((m) => m.userId))));
+    .where(and(eq(channelMember.channelId, channelId), inArray(channelMember.userId, targets)));
   const bumps: UnreadBump[] = [];
   for (const m of fresh) {
+    if (hub.isViewing(m.userId, channelId)) {
+      const cleared = await markRead(db, channelId, m.userId);
+      if (cleared) {
+        broadcastUnread(hub, {
+          userId: m.userId,
+          workspaceId: cleared.workspaceId,
+          channelId,
+          unreadCount: 0,
+          mentionCount: 0,
+        });
+      }
+      continue;
+    }
     const bump: UnreadBump = {
       userId: m.userId,
       workspaceId: m.workspaceId,
@@ -170,13 +219,7 @@ export async function bumpUnread(
       mentionCount: m.mentionCount,
     };
     bumps.push(bump);
-    hub.broadcastToUser(m.userId, {
-      type: "unread",
-      channelId,
-      workspaceId: m.workspaceId,
-      unreadCount: m.unreadCount,
-      mentionCount: m.mentionCount,
-    });
+    broadcastUnread(hub, bump);
   }
   return bumps;
 }

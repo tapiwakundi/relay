@@ -8,7 +8,7 @@ import type { Auth } from "./better-auth.js";
 import { message, reaction, workspaceMember } from "./db/schema.js";
 import { selectWorkspace } from "./domain.js";
 import { joinHuddle, leaveHuddle } from "./huddle.js";
-import { type Hub } from "./hub.js";
+import { broadcastUnread, type Hub } from "./hub.js";
 import { hydrateMessages, markRead, type AppDb } from "./queries.js";
 import { provisionAuthedUser } from "./provision.js";
 import { createChatMessage } from "./send.js";
@@ -85,7 +85,16 @@ export function attachSockets(opts: {
         if (event.type === "subscribe") {
           await requireChannelMember(db, event.channelId, userId);
           hub.subscribe(client, event.channelId);
-          await markRead(db, event.channelId, userId);
+          const cleared = await markRead(db, event.channelId, userId);
+          if (cleared) {
+            broadcastUnread(hub, {
+              userId,
+              workspaceId: cleared.workspaceId,
+              channelId: event.channelId,
+              unreadCount: 0,
+              mentionCount: 0,
+            });
+          }
           return;
         }
         if (event.type === "unsubscribe") {
@@ -124,7 +133,6 @@ export function attachSockets(opts: {
         }
         if (event.type === "message.send") {
           await requireChannelMember(db, event.channelId, userId);
-          hub.subscribe(client, event.channelId);
           const result = await createChatMessage(db, hub, {
             channelId: event.channelId,
             userId,

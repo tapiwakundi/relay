@@ -21,7 +21,7 @@ import * as Haptics from "expo-haptics";
 import { type Channel, type ChatMessage } from "@relay/shared";
 import { api } from "../lib/auth";
 import { formatDay, formatStamp, formatTime, sameMinute } from "../lib/format";
-import { keys } from "../lib/query";
+import { clearChannelUnread, keys, setViewedChannelId } from "../lib/query";
 import { sendMessage, useWorkspace } from "../lib/workspace";
 import { Ionicons } from "@expo/vector-icons";
 import { Avatar } from "./Avatar";
@@ -90,9 +90,15 @@ export function ChatView({
   const parent = parentId ? (parentQ.data ?? null) : null;
 
   useEffect(() => {
+    if (parentId) return;
+    setViewedChannelId(channel.id);
+    clearChannelUnread(channel.id);
     sendWs({ type: "subscribe", channelId: channel.id });
-    return () => sendWs({ type: "unsubscribe", channelId: channel.id });
-  }, [channel.id, sendWs]);
+    return () => {
+      setViewedChannelId(null);
+      sendWs({ type: "unsubscribe", channelId: channel.id });
+    };
+  }, [channel.id, parentId, sendWs]);
 
   const messages = msgQ.data?.messages ?? [];
 
@@ -121,6 +127,7 @@ export function ChatView({
       fileContentType: file?.contentType,
     };
     qc.setQueryData<{ messages: ChatMessage[] }>(keys.messages(channel.id, parentId), (old) => ({
+      ...old,
       messages: [...(old?.messages ?? []), optimistic],
     }));
     try {
@@ -136,6 +143,7 @@ export function ChatView({
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {
       qc.setQueryData<{ messages: ChatMessage[] }>(keys.messages(channel.id, parentId), (old) => ({
+        ...old,
         messages: (old?.messages ?? []).map((m) => (m.clientId === clientId ? { ...m, failed: true, pending: false } : m)),
       }));
     }
