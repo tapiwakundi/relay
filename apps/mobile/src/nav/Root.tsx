@@ -23,6 +23,7 @@ import { GlassTabBar } from "./GlassTabBar";
 import { ComposeMenu } from "../ui/ComposeMenu";
 import { colors } from "../ui/theme";
 import { ActivityScreen } from "../screens/ActivityScreen";
+import { ChannelDetailsScreen } from "../screens/ChannelDetailsScreen";
 import { ChannelScreen } from "../screens/ChannelScreen";
 import { HuddleScreen } from "../screens/HuddleScreen";
 import { DmsScreen } from "../screens/DmsScreen";
@@ -163,6 +164,16 @@ export function RootNav() {
       >
         <Stack.Screen name="Tabs" component={TabNav} />
         <Stack.Screen name="Channel" component={ChannelScreen} />
+        <Stack.Screen
+          name="ChannelDetails"
+          component={ChannelDetailsScreen}
+          options={{
+            presentation: "pageSheet",
+            animation: "slide_from_bottom",
+            gestureDirection: "vertical",
+            gestureEnabled: true,
+          }}
+        />
         <Stack.Screen
           name="Huddle"
           component={HuddleScreen}

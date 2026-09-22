@@ -19,9 +19,11 @@ import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
 import { type Channel, type ChatMessage } from "@relay/shared";
+import { useAccounts } from "../lib/account-manager";
 import { api } from "../lib/auth";
-import { formatDay, formatStamp, formatTime, sameMinute } from "../lib/format";
+import { clearTyping, formatDay, formatStamp, formatTime, newClientId, noteTyping, optimisticMessage, sameMinute, TYPING_HOLD_MS, typingLabel, withFailedPending, type TypingEntry } from "@relay/chat";
 import { clearChannelUnread, keys, setViewedChannelId } from "../lib/query";
+import { addRealtimeListener } from "../lib/realtime-hub";
 import { sendMessage, useWorkspace } from "../lib/workspace";
 import { Ionicons } from "@expo/vector-icons";
 import { Avatar } from "./Avatar";
@@ -47,6 +49,9 @@ export function ChatView({
   topInset?: number;
 }) {
   const { me, members, sendWs } = useWorkspace();
+  const { activeAccountId } = useAccounts();
+  const [typers, setTypers] = useState<Record<string, TypingEntry>>({});
+  const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const list = useRef<FlatList<ChatMessage>>(null);
@@ -107,12 +112,48 @@ export function ChatView({
     };
   }, [channel.id, parentId, sendWs]);
 
+  useEffect(() => {
+    const timers = typingTimers.current;
+    setTypers({});
+    const stop = addRealtimeListener((ev, accountId) => {
+      if (accountId !== activeAccountId) return;
+      if (ev.type === "typing" && ev.userId !== me.id && ev.channelId === channel.id && (ev.parentId ?? null) === parentId) {
+        const userId = ev.userId;
+        setTypers((prev) => noteTyping(prev, userId, ev.userName, parentId));
+        const pending = timers[userId];
+        if (pending) clearTimeout(pending);
+        timers[userId] = setTimeout(() => {
+          delete timers[userId];
+          setTypers((prev) => clearTyping(prev, userId));
+        }, TYPING_HOLD_MS);
+      }
+      if (
+        ev.type === "message.created" &&
+        ev.message.channelId === channel.id &&
+        (ev.message.parentId ?? null) === parentId &&
+        ev.message.userId !== me.id
+      ) {
+        const userId = ev.message.userId;
+        const pending = timers[userId];
+        if (pending) clearTimeout(pending);
+        delete timers[userId];
+        setTypers((prev) => clearTyping(prev, userId));
+      }
+    });
+    return () => {
+      stop();
+      for (const timer of Object.values(timers)) clearTimeout(timer);
+      for (const userId of Object.keys(timers)) delete timers[userId];
+    };
+  }, [activeAccountId, channel.id, me.id, parentId]);
+
   const messages = msgQ.data?.messages ?? [];
+  const typingText = typingLabel(typers, parentId);
 
   async function send(body: string, file?: { key: string; name: string; contentType: string }) {
-    const clientId = globalThis.crypto?.randomUUID?.() ?? `c-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const optimistic: ChatMessage = {
-      id: clientId,
+    const clientId = newClientId();
+    const optimistic = optimisticMessage({
+      clientId,
       channelId: channel.id,
       parentId,
       userId: me.id,
@@ -120,19 +161,10 @@ export function ChatView({
       userImage: me.image,
       userStatusEmoji: me.statusEmoji,
       body,
-      createdAt: new Date().toISOString(),
-      updatedAt: null,
-      edited: false,
-      replyCount: 0,
-      latestReplyAt: null,
-      replyUserIds: [],
-      reactions: [],
-      pending: true,
-      clientId,
       fileKey: file?.key,
       fileName: file?.name,
       fileContentType: file?.contentType,
-    };
+    });
     qc.setQueryData<{ messages: ChatMessage[] }>(keys.messages(channel.id, parentId), (old) => ({
       ...old,
       messages: [...(old?.messages ?? []), optimistic],
@@ -151,7 +183,7 @@ export function ChatView({
     } catch {
       qc.setQueryData<{ messages: ChatMessage[] }>(keys.messages(channel.id, parentId), (old) => ({
         ...old,
-        messages: (old?.messages ?? []).map((m) => (m.clientId === clientId ? { ...m, failed: true, pending: false } : m)),
+        messages: withFailedPending(old?.messages ?? [], clientId),
       }));
     }
   }
@@ -335,6 +367,11 @@ export function ChatView({
           if (next > 0 && Math.abs(next - composerH) > 1) setComposerH(next);
         }}
       >
+        {typingText ? (
+          <Text style={styles.typing} numberOfLines={1} accessibilityLiveRegion="polite">
+            {typingText}
+          </Text>
+        ) : null}
         <Composer
           placeholder={parentId ? "Add a reply" : `Message ${channel.isDm ? channel.dmName ?? channel.name : "#" + channel.name}`}
           onSend={(body) => void send(body)}
@@ -342,6 +379,7 @@ export function ChatView({
           onPickImage={() => void pickImage()}
           focusNonce={focusNonce}
           onFocus={() => scrollToLatest(true)}
+          onTyping={() => sendWs({ type: "typing", channelId: channel.id, parentId })}
         />
       </View>
 
@@ -610,6 +648,13 @@ const styles = StyleSheet.create({
   rxnTxt: { color: colors.ink, fontSize: 13 },
   thread: { color: colors.accent, fontWeight: "700", marginTop: 6 },
   composer: { paddingHorizontal: 14, zIndex: 10 },
+  typing: {
+    color: colors.muted,
+    fontSize: 13,
+    fontStyle: "italic",
+    marginBottom: 6,
+    paddingHorizontal: 8,
+  },
   hero: { marginBottom: 8 },
   addReact: {
     width: 32,

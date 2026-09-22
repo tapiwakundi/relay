@@ -3,9 +3,10 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { Channel, Member } from "@relay/shared";
+import type { Channel } from "@relay/shared";
 import { useAccounts } from "../lib/account-manager";
 import { useWorkspace } from "../lib/workspace";
+import { dmPeer } from "@relay/chat";
 import { api } from "../lib/auth";
 import { keys, queryClient } from "../lib/query";
 import { Avatar } from "../ui/Avatar";
@@ -130,7 +131,7 @@ export function HomeScreen() {
             }}
           />
           {otherDms.map((c) => {
-            const peer = peerForDm(c, members, me.id);
+            const peer = dmPeer(members, c, me.id) ?? members.find((member) => member.userId !== me.id);
             return (
               <DmRow
                 key={c.id}
@@ -211,15 +212,6 @@ export function HomeScreen() {
         </View>
       </Modal>
     </ScreenCanvas>
-  );
-}
-
-function peerForDm(channel: Channel, members: Member[], meId: string) {
-  const label = channel.dmName ?? channel.name;
-  const first = label.split(",")[0]?.trim();
-  return (
-    members.find((m) => m.userId !== meId && (m.displayName === label || m.name === label || m.displayName === first)) ??
-    members.find((m) => m.userId !== meId)
   );
 }
 

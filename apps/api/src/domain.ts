@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNull, lt } from "drizzle-orm";
-import type { Channel, InboxInvite } from "@relay/shared";
-import { HttpError, requireWorkspaceMember, setActiveWorkspace } from "./access.js";
+import { slugChannelName, type Channel, type ChannelDetails, type InboxInvite } from "@relay/shared";
+import { HttpError, requireChannelMember, requireWorkspaceMember, setActiveWorkspace } from "./access.js";
 import type { AppDb } from "./db/index.js";
 import {
   channel,
@@ -247,7 +247,7 @@ export async function createNamedChannel(
   db: AppDb,
   opts: { workspaceId: string; userId: string; name: string; topic?: string; isPrivate?: boolean },
 ) {
-  const name = opts.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  const name = slugChannelName(opts.name);
   if (!name) throw new HttpError(400, "Name required");
   await requireWorkspaceMember(db, opts.workspaceId, opts.userId);
   const kind = opts.isPrivate ? "private" : "public";
@@ -360,6 +360,108 @@ export async function loadChannelForUser(db: AppDb, channelId: string, userId: s
     memberRows.length,
     memberRows.map((m) => m.userId),
   );
+}
+
+export async function getChannelDetails(db: AppDb, channelId: string, userId: string): Promise<ChannelDetails> {
+  const view = await loadChannelForUser(db, channelId, userId);
+  const [row] = await db
+    .select({ createdAt: channel.createdAt, createdBy: channel.createdBy, workspaceId: channel.workspaceId })
+    .from(channel)
+    .where(eq(channel.id, channelId))
+    .limit(1);
+  if (!row) throw new HttpError(404, "Not found");
+  const people = await getMembers(db, row.workspaceId);
+  const memberRows = await db
+    .select({ userId: channelMember.userId })
+    .from(channelMember)
+    .where(and(eq(channelMember.channelId, channelId), isNull(channelMember.leftAt)));
+  const creator = row.createdBy ? people.find((m) => m.userId === row.createdBy) : undefined;
+  return {
+    channel: view,
+    createdAt: row.createdAt.toISOString(),
+    createdBy: row.createdBy
+      ? { userId: row.createdBy, name: creator?.displayName || creator?.name || "Someone" }
+      : null,
+    memberIds: memberRows.map((m) => m.userId),
+  };
+}
+
+export async function updateChannel(
+  db: AppDb,
+  channelId: string,
+  userId: string,
+  patch: { name?: string; topic?: string | null; description?: string | null },
+) {
+  const access = await requireChannelMember(db, channelId, userId);
+  if ((access.channel.kind === "dm" || access.channel.kind === "mpim") && patch.name !== undefined) {
+    throw new HttpError(400, "You can't rename this conversation");
+  }
+  const next: { name?: string; topic?: string | null; description?: string | null; updatedAt: Date } = {
+    updatedAt: new Date(),
+  };
+  if (patch.name !== undefined) {
+    const name = slugChannelName(patch.name);
+    if (!name) throw new HttpError(400, "Name required");
+    next.name = name;
+  }
+  if (patch.topic !== undefined) next.topic = patch.topic?.trim() || null;
+  if (patch.description !== undefined) next.description = patch.description?.trim() || null;
+  try {
+    await db.update(channel).set(next).where(eq(channel.id, channelId));
+  } catch (err) {
+    if (isUniqueViolation(err)) throw new HttpError(409, "A channel with that name already exists");
+    throw err;
+  }
+  return getChannelDetails(db, channelId, userId);
+}
+
+export async function leaveChannel(db: AppDb, channelId: string, userId: string) {
+  const access = await requireChannelMember(db, channelId, userId);
+  if (access.channel.kind === "dm") throw new HttpError(400, "You can't leave a direct message");
+  await db
+    .update(channelMember)
+    .set({ leftAt: new Date() })
+    .where(and(eq(channelMember.channelId, channelId), eq(channelMember.userId, userId)));
+  const memberRows = await db
+    .select({ userId: channelMember.userId })
+    .from(channelMember)
+    .where(and(eq(channelMember.channelId, channelId), isNull(channelMember.leftAt)));
+  return {
+    channelId,
+    workspaceId: access.workspaceId,
+    name: access.channel.name,
+    topic: access.channel.topic,
+    description: access.channel.description,
+    memberCount: memberRows.length,
+  };
+}
+
+export async function addChannelMember(db: AppDb, channelId: string, actorId: string, memberUserId: string) {
+  const access = await requireChannelMember(db, channelId, actorId);
+  if (access.channel.kind === "dm") throw new HttpError(400, "This conversation has a fixed set of people");
+  await requireWorkspaceMember(db, access.workspaceId, memberUserId);
+  await db
+    .insert(channelMember)
+    .values({ channelId, workspaceId: access.workspaceId, userId: memberUserId })
+    .onConflictDoUpdate({
+      target: [channelMember.channelId, channelMember.userId],
+      set: { leftAt: null },
+    });
+  const [forMember, details] = await Promise.all([
+    loadChannelForUser(db, channelId, memberUserId),
+    getChannelDetails(db, channelId, actorId),
+  ]);
+  return { forMember, details };
+}
+
+export async function toggleChannelMute(db: AppDb, channelId: string, userId: string) {
+  const access = await requireChannelMember(db, channelId, userId);
+  const next = !access.membership.isMuted;
+  await db
+    .update(channelMember)
+    .set({ isMuted: next })
+    .where(and(eq(channelMember.channelId, channelId), eq(channelMember.userId, userId)));
+  return loadChannelForUser(db, channelId, userId);
 }
 
 export async function createInvite(db: AppDb, workspaceId: string, invitedBy: string, email: string) {

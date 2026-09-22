@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Channel, ChatMessage, Member } from "@relay/shared";
 import { EMOJI_QUICK } from "@relay/shared";
-import { formatDay, formatTime, renderBody, sameMinute } from "../lib/format";
+import { formatDay, formatTime, renderBody, sameMinute } from "@relay/chat";
 import { Avatar } from "./Avatar";
 import { Bookmark, Emoji, MoreIcon, Share, ThreadIcon } from "./Icons";
 

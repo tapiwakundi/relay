@@ -75,6 +75,7 @@ export function ChannelScreen({ navigation, route }: Props) {
         onHuddle={() => void huddle()}
         huddleJoined={inHuddle}
         huddleBusy={busy}
+        onPeople={() => navigation.navigate("ChannelDetails", { channelId: channel.id })}
       />
     </ScreenCanvas>
   );

@@ -12,6 +12,7 @@ import {
   LuCircleHelp,
   LuClock,
   LuCode,
+  LuCopy,
   LuEllipsis,
   LuFile,
   LuHash,
@@ -85,6 +86,7 @@ export const Video = withDefaults(LuVideo, 16);
 export const Screen = withDefaults(LuMonitor, 16);
 export const Leave = withDefaults(LuLogOut, 16);
 export const Close = withDefaults(LuX, 16);
+export const Copy = withDefaults(LuCopy, 14);
 export const ThreadIcon = withDefaults(LuMessageSquareReply, 16);
 export const Bookmark = withDefaults(LuBookmark, 16);
 export const Share = withDefaults(LuShare2, 16);

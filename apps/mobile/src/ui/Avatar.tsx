@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { hue, initials } from "../lib/format";
+import { hue, initials } from "@relay/chat";
 import { colors } from "./theme";
 
 export function Avatar({

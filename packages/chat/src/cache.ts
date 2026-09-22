@@ -1,0 +1,225 @@
+import type { QueryClient } from "@tanstack/react-query";
+import type { Channel, ChatMessage, InboxInvite, Member, Workspace, WorkspaceSummary, WsServerEvent } from "@relay/shared";
+
+export const keys = {
+  me: ["me"] as const,
+  bootstrap: (wsId: string) => ["bootstrap", wsId] as const,
+  messages: (channelId: string, parentId: string | null) => ["messages", channelId, parentId] as const,
+  message: (id: string) => ["message", id] as const,
+  activity: (wsId: string) => ["activity", wsId] as const,
+  files: (wsId: string) => ["files", wsId] as const,
+  later: (wsId: string) => ["later", wsId] as const,
+  threads: (wsId: string) => ["threads", wsId] as const,
+  invites: (wsId: string) => ["invites", wsId] as const,
+  search: (wsId: string, q: string) => ["search", wsId, q] as const,
+};
+
+export type Me = {
+  id: string;
+  name: string;
+  email: string;
+  image: string | null;
+  displayName: string;
+  title: string | null;
+  statusText: string | null;
+  statusEmoji: string | null;
+  presence: string;
+  role: string;
+};
+
+export type MeResponse = {
+  user: Me;
+  workspaces: WorkspaceSummary[];
+  activeWorkspaceId: string | null;
+  membership: Member | null;
+  workspace: Workspace | null;
+  pendingInvites: InboxInvite[];
+};
+
+export type Bootstrap = { workspace: Workspace; members: Member[]; channels: Channel[] };
+
+function sameWorkspace(boot: Bootstrap | undefined, workspaceId?: string) {
+  if (!boot) return false;
+  if (!workspaceId) return true;
+  return boot.workspace.id === workspaceId;
+}
+
+function upsertLoadedMessage<T extends { messages: ChatMessage[] }>(old: T | undefined, message: ChatMessage): T | undefined {
+  if (!old) return old;
+  const list = old.messages;
+  const byClient = message.clientId
+    ? list.findIndex((m) => m.clientId === message.clientId || m.id === message.clientId)
+    : -1;
+  if (byClient >= 0) {
+    const next = list.slice();
+    next[byClient] = { ...message, pending: false };
+    return { ...old, messages: next };
+  }
+  if (list.some((m) => m.id === message.id)) return old;
+  return { ...old, messages: [...list, message] };
+}
+
+function writeChannelUnread(qc: QueryClient, channelId: string, unreadCount: number, mentionCount: number) {
+  const matches = qc.getQueriesData<Bootstrap>({ queryKey: ["bootstrap"] });
+  const dirty = matches.some(([, boot]) => {
+    const current = boot?.channels.find((c) => c.id === channelId);
+    return Boolean(current && (current.unreadCount !== unreadCount || current.mentionCount !== mentionCount));
+  });
+  if (!dirty) return;
+  qc.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
+    if (!boot) return boot;
+    const current = boot.channels.find((c) => c.id === channelId);
+    if (!current || (current.unreadCount === unreadCount && current.mentionCount === mentionCount)) return boot;
+    return {
+      ...boot,
+      channels: boot.channels.map((c) => (c.id === channelId ? { ...c, unreadCount, mentionCount } : c)),
+    };
+  });
+}
+
+export function clearChannelUnread(qc: QueryClient, channelId: string) {
+  writeChannelUnread(qc, channelId, 0, 0);
+}
+
+export function applyWsEvent(qc: QueryClient, ev: WsServerEvent, viewedChannelId: string | null, _meId: string) {
+  if (ev.type === "message.created") {
+    const parentId = ev.message.parentId ?? null;
+    qc.setQueryData<{ messages: ChatMessage[] }>(keys.messages(ev.message.channelId, parentId), (old) =>
+      upsertLoadedMessage(old, ev.message),
+    );
+    if (parentId) {
+      qc.setQueryData<{ messages: ChatMessage[] }>(keys.messages(ev.message.channelId, null), (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          messages: old.messages.map((m) =>
+            m.id === parentId
+              ? {
+                  ...m,
+                  replyCount: m.replyCount + 1,
+                  latestReplyAt: ev.message.createdAt,
+                  replyUserIds: m.replyUserIds.includes(ev.message.userId)
+                    ? m.replyUserIds
+                    : [...m.replyUserIds, ev.message.userId],
+                }
+              : m,
+          ),
+        };
+      });
+    }
+  }
+  if (ev.type === "message.updated") {
+    qc.setQueryData(keys.message(ev.message.id), ev.message);
+    const parentId = ev.message.parentId ?? null;
+    qc.setQueryData<{ messages: ChatMessage[] }>(keys.messages(ev.message.channelId, parentId), (old) => {
+      if (!old) return old;
+      return { ...old, messages: old.messages.map((m) => (m.id === ev.message.id ? ev.message : m)) };
+    });
+    qc.setQueryData<{ messages: ChatMessage[] }>(keys.messages(ev.message.channelId, null), (old) => {
+      if (!old) return old;
+      return { ...old, messages: old.messages.map((m) => (m.id === ev.message.id ? { ...m, ...ev.message } : m)) };
+    });
+  }
+  if (ev.type === "message.deleted") {
+    qc.setQueryData<{ messages: ChatMessage[] }>(keys.messages(ev.channelId, ev.parentId ?? null), (old) =>
+      old
+        ? {
+            ...old,
+            messages: old.messages.map((m) => (m.id === ev.messageId ? { ...m, deleted: true, body: "" } : m)),
+          }
+        : old,
+    );
+  }
+  if (ev.type === "presence") {
+    qc.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
+      if (!sameWorkspace(boot, ev.workspaceId)) return boot;
+      return {
+        ...boot!,
+        members: boot!.members.map((m) => (m.userId === ev.userId ? { ...m, presence: ev.presence } : m)),
+      };
+    });
+  }
+  if (ev.type === "huddle.updated") {
+    qc.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
+      if (!sameWorkspace(boot, ev.workspaceId)) return boot;
+      return {
+        ...boot!,
+        channels: boot!.channels.map((c) => (c.id === ev.channelId ? { ...c, huddle: ev.huddle } : c)),
+      };
+    });
+  }
+  if (ev.type === "unread") {
+    const viewing = ev.channelId === viewedChannelId;
+    writeChannelUnread(qc, ev.channelId, viewing ? 0 : ev.unreadCount, viewing ? 0 : ev.mentionCount);
+  }
+  if (ev.type === "channel.created") {
+    qc.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
+      if (!sameWorkspace(boot, ev.workspaceId ?? ev.channel.workspaceId)) return boot;
+      if (boot!.channels.some((c) => c.id === ev.channel.id)) return boot;
+      return { ...boot!, channels: [...boot!.channels, ev.channel] };
+    });
+  }
+  if (ev.type === "channel.updated") {
+    qc.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
+      if (!sameWorkspace(boot, ev.workspaceId)) return boot;
+      return {
+        ...boot!,
+        channels: boot!.channels.map((c) =>
+          c.id === ev.channelId
+            ? {
+                ...c,
+                memberCount: ev.memberCount,
+                ...(c.isDm || c.isMpim ? {} : { name: ev.name, topic: ev.topic, description: ev.description }),
+              }
+            : c,
+        ),
+      };
+    });
+  }
+  if (ev.type === "workspace.updated") {
+    qc.setQueryData<MeResponse>(keys.me, (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        workspace: old.workspace?.id === ev.workspace.id ? ev.workspace : old.workspace,
+        workspaces: (old.workspaces ?? []).map((ws) => (ws.id === ev.workspace.id ? { ...ws, ...ev.workspace } : ws)),
+      };
+    });
+    qc.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) =>
+      boot && boot.workspace.id === ev.workspace.id ? { ...boot, workspace: ev.workspace } : boot,
+    );
+  }
+  if (ev.type === "member.updated") {
+    qc.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
+      if (!sameWorkspace(boot, ev.workspaceId)) return boot;
+      return {
+        ...boot!,
+        members: boot!.members.map((m) => (m.userId === ev.member.userId ? ev.member : m)),
+      };
+    });
+    qc.setQueryData<MeResponse>(keys.me, (old) => {
+      if (!old?.user || old.user.id !== ev.member.userId) return old;
+      if (ev.workspaceId && old.activeWorkspaceId && ev.workspaceId !== old.activeWorkspaceId) return old;
+      return {
+        ...old,
+        user: {
+          ...old.user,
+          name: ev.member.name,
+          image: ev.member.image,
+          displayName: ev.member.displayName,
+          title: ev.member.title,
+          statusText: ev.member.statusText,
+          statusEmoji: ev.member.statusEmoji,
+          presence: ev.member.presence,
+        },
+      };
+    });
+  }
+  if (ev.type === "member.joined") {
+    qc.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
+      if (!sameWorkspace(boot, ev.workspaceId)) return boot;
+      if (boot!.members.some((m) => m.userId === ev.member.userId)) return boot;
+      return { ...boot!, members: [...boot!.members, ev.member] };
+    });
+  }
+}

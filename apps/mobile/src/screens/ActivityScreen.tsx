@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ActivityItem } from "@relay/shared";
 import { api } from "../lib/auth";
-import { formatTime } from "../lib/format";
+import { formatTime } from "@relay/chat";
 import { keys } from "../lib/query";
 import { useWorkspace } from "../lib/workspace";
 import { Avatar } from "../ui/Avatar";

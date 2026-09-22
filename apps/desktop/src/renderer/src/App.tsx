@@ -12,6 +12,7 @@ import type {
   Workspace,
   WsServerEvent,
 } from "@relay/shared";
+import { clearTyping, dmPeer, newClientId, noteTyping, optimisticMessage, TYPING_HOLD_MS, typingLabel, withFailedPending, type TypingEntry } from "@relay/chat";
 import { Room, RoomEvent } from "livekit-client";
 import { relayChannels } from "../../shared/ipc";
 import { api, signOut } from "./lib/auth";
@@ -36,12 +37,11 @@ import { AcceptInviteScreen } from "./components/AcceptInviteScreen";
 import {
   AddWorkspaceDialog,
   ChannelDialog,
-  ChannelInfoDialog,
   InviteDialog,
-  MembersDialog,
   NewMessagePane,
   WorkspaceSettingsDialog,
 } from "./components/Dialogs";
+import { ChannelDetailsDialog } from "./components/ChannelDetails";
 import { ProfilePane } from "./components/ProfilePane";
 import { WorkspaceGlyph } from "./components/WorkspaceGlyph";
 import {
@@ -75,8 +75,7 @@ type Dialog =
   | "invite"
   | "channel"
   | "dm"
-  | "members"
-  | "info"
+  | "details"
   | "self"
   | "workspace"
   | "workspace-settings"
@@ -98,7 +97,8 @@ export function WorkspaceApp() {
   const [addWorkspace, setAddWorkspace] = useState(false);
   const [skipInvites, setSkipInvites] = useState(false);
   const [dialog, setDialog] = useState<Dialog>(null);
-  const [typing, setTyping] = useState<string | null>(null);
+  const [detailsTab, setDetailsTab] = useState<"about" | "members">("about");
+  const [typers, setTypers] = useState<Record<string, TypingEntry>>({});
   const [inHuddle, setInHuddle] = useState(false);
   const [muted, setMuted] = useState(false);
   const [camera, setCamera] = useState(false);
@@ -107,6 +107,7 @@ export function WorkspaceApp() {
   const [profile, setProfile] = useState<Member | null>(null);
   const [nav, setNav] = useState<{ stack: string[]; idx: number }>({ stack: [], idx: -1 });
   const scrollRef = useRef<HTMLDivElement>(null);
+  const typingTimers = useRef<Record<string, number>>({});
   const wsRef = useRef<ReturnType<typeof connectWs> | null>(null);
   const roomRef = useRef<Room | null>(null);
   const meIdRef = useRef<string | null>(null);
@@ -315,9 +316,23 @@ export function WorkspaceApp() {
       (ev: WsServerEvent, accountId: string) => {
         if (accountId !== (meIdRef.current ?? me.id)) return;
         applyWsEvent(ev, meIdRef.current ?? me.id);
-        if (ev.type === "typing" && ev.userId !== me.id) {
-          setTyping(`${ev.userName} is typing…`);
-          window.setTimeout(() => setTyping(null), 2500);
+        if (ev.type === "typing" && ev.userId !== (meIdRef.current ?? me.id) && ev.channelId === activeIdRef.current) {
+          const userId = ev.userId;
+          const parentId = ev.parentId ?? null;
+          setTypers((prev) => noteTyping(prev, userId, ev.userName, parentId));
+          const pending = typingTimers.current[userId];
+          if (pending) window.clearTimeout(pending);
+          typingTimers.current[userId] = window.setTimeout(() => {
+            delete typingTimers.current[userId];
+            setTypers((prev) => clearTyping(prev, userId));
+          }, TYPING_HOLD_MS);
+        }
+        if (ev.type === "message.created" && ev.message.userId !== (meIdRef.current ?? me.id)) {
+          const userId = ev.message.userId;
+          const pending = typingTimers.current[userId];
+          if (pending) window.clearTimeout(pending);
+          delete typingTimers.current[userId];
+          setTypers((prev) => clearTyping(prev, userId));
         }
       },
       (accountId) => {
@@ -328,10 +343,17 @@ export function WorkspaceApp() {
       },
     );
     wsRef.current = sock;
-    return () => sock.close();
+    return () => {
+      sock.close();
+      for (const timer of Object.values(typingTimers.current)) window.clearTimeout(timer);
+      typingTimers.current = {};
+    };
   }, [me?.id, workspace?.id]);
 
   useEffect(() => {
+    for (const timer of Object.values(typingTimers.current)) window.clearTimeout(timer);
+    typingTimers.current = {};
+    setTypers({});
     if (!activeId) return;
     clearChannelUnread(activeId);
     wsRef.current?.send({ type: "subscribe", channelId: activeId });
@@ -383,10 +405,10 @@ export function WorkspaceApp() {
 
   async function sendPayload(channelId: string, body: string, file?: File, parentId?: string | null) {
     if (!me) return;
-    const clientId = crypto.randomUUID();
+    const clientId = newClientId();
     const key = keys.messages(channelId, parentId ?? null);
-    const optimistic: ChatMessage = {
-      id: clientId,
+    const optimistic = optimisticMessage({
+      clientId,
       channelId,
       parentId: parentId ?? null,
       userId: me.id,
@@ -394,18 +416,9 @@ export function WorkspaceApp() {
       userImage: me.image,
       userStatusEmoji: me.statusEmoji,
       body,
-      createdAt: new Date().toISOString(),
-      updatedAt: null,
-      edited: false,
-      replyCount: 0,
-      latestReplyAt: null,
-      replyUserIds: [],
-      reactions: [],
       fileName: file?.name ?? null,
       fileContentType: file?.type ?? null,
-      pending: true,
-      clientId,
-    };
+    });
     await qc.cancelQueries({ queryKey: key });
     qc.setQueryData<{ messages: ChatMessage[] }>(key, (old) => ({
       ...old,
@@ -414,9 +427,7 @@ export function WorkspaceApp() {
     const fail = () => {
       qc.setQueryData<{ messages: ChatMessage[] }>(key, (old) => ({
         ...old,
-        messages: (old?.messages ?? []).map((m) =>
-          m.clientId === clientId && m.pending ? { ...m, pending: false, failed: true } : m,
-        ),
+        messages: withFailedPending(old?.messages ?? [], clientId),
       }));
     };
     const timer = window.setTimeout(fail, 12_000);
@@ -543,22 +554,6 @@ export function WorkspaceApp() {
     goTo(res.channel.id);
     setDialog(null);
     setRail("home");
-  }
-
-  async function starActive() {
-    if (!active) return;
-    const res = await api<{ isStarred: boolean }>(`/api/channels/${active.id}/star`, { method: "POST" });
-    qc.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
-      if (!boot) return boot;
-      return {
-        ...boot,
-        channels: boot.channels.map((c) =>
-          c.id === active.id
-            ? { ...c, isStarred: res.isStarred, section: res.isStarred ? "starred" : c.isDm ? "direct" : "channels" }
-            : c,
-        ),
-      };
-    });
   }
 
   async function saveLater(m: ChatMessage) {
@@ -738,6 +733,8 @@ export function WorkspaceApp() {
   const threadParent = thread
     ? (messages.find((m) => m.id === thread.id) ?? thread)
     : null;
+  const channelTyping = typingLabel(typers, null);
+  const threadTyping = typingLabel(typers, threadParent?.id ?? null);
 
   return (
     <div className={`shell ${thread || shownProfile ? "with-thread" : ""} electron`}>
@@ -1084,10 +1081,22 @@ export function WorkspaceApp() {
                   <Headphones />
                   {huddle?.active ? huddle.participants.length : null}
                 </button>
-                <button className="hdr-btn" onClick={() => setDialog("members")}>
+                <button
+                  className="hdr-btn"
+                  onClick={() => {
+                    setDetailsTab("about");
+                    setDialog("details");
+                  }}
+                >
                   <Users /> {active.memberCount}
                 </button>
-                <button className="hdr-btn" onClick={() => setDialog("info")}>
+                <button
+                  className="hdr-btn"
+                  onClick={() => {
+                    setDetailsTab("about");
+                    setDialog("details");
+                  }}
+                >
                   <Info />
                 </button>
               </div>
@@ -1118,7 +1127,7 @@ export function WorkspaceApp() {
                 onDelete={(m) => void deleteMessage(m)}
               />
             </div>
-            <div className="typing">{typing}</div>
+            <div className="typing">{channelTyping}</div>
             <Composer
               key={active.id}
               placeholder={active.isDm ? `Message ${active.name}` : `Message #${active.name}`}
@@ -1157,6 +1166,7 @@ export function WorkspaceApp() {
               onDelete={(m) => void deleteMessage(m)}
             />
           </div>
+          <div className="typing">{threadTyping}</div>
           <Composer
             key={threadParent.id}
             placeholder="Reply…"
@@ -1222,13 +1232,35 @@ export function WorkspaceApp() {
       {dialog === "channel" && (
         <ChannelDialog onCreate={createChannel} onClose={() => setDialog(null)} />
       )}
-      {dialog === "members" && <MembersDialog members={members} onClose={() => setDialog(null)} />}
-      {dialog === "info" && active && (
-        <ChannelInfoDialog
+      {dialog === "details" && active && (
+        <ChannelDetailsDialog
           channel={active}
-          starred={active.isStarred}
-          onStar={() => void starActive()}
+          members={members}
+          meId={me.id}
+          initialTab={detailsTab}
           onClose={() => setDialog(null)}
+          onUpdated={(next) => {
+            qc.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
+              if (!boot) return boot;
+              return { ...boot, channels: boot.channels.map((c) => (c.id === next.id ? { ...c, ...next } : c)) };
+            });
+          }}
+          onLeft={() => {
+            const id = active.id;
+            qc.setQueriesData<Bootstrap>({ queryKey: ["bootstrap"] }, (boot) => {
+              if (!boot) return boot;
+              return { ...boot, channels: boot.channels.filter((c) => c.id !== id) };
+            });
+            setDialog(null);
+            setThread(null);
+            const rest = channels.filter((c) => c.id !== id);
+            setActiveId(rest.find((c) => !c.isDm)?.id ?? rest[0]?.id ?? null);
+          }}
+          onHuddle={() => void joinHuddle()}
+          onOpenProfile={(userId) => {
+            setDialog(null);
+            openProfile(userId);
+          }}
         />
       )}
       {dialog === "self" && (
@@ -1505,16 +1537,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function peerForDm(channel: Channel, members: Map<string, Member>, meId: string) {
-  const people = [...members.values()];
-  const label = channel.dmName ?? channel.name;
-  const first = label.split(",")[0]?.trim();
-  const me = members.get(meId);
-  if (me && (me.displayName === label || me.name === label)) return me;
-  return people.find(
-    (m) =>
-      m.userId !== meId &&
-      (m.displayName === label || m.name === label || m.displayName === first || m.name === first),
-  );
+  return dmPeer([...members.values()], channel, meId);
 }
 
 function ChannelRow({

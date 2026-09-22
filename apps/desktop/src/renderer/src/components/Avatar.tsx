@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { hue, initials } from "../lib/format";
+import { hue, initials } from "@relay/chat";
 
 export function Avatar({
   name,

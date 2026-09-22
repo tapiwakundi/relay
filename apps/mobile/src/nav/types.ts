@@ -9,6 +9,7 @@ export type RootStackParamList = {
   NewChannel: undefined;
   NewDm: undefined;
   Search: undefined;
+  ChannelDetails: { channelId: string };
   Later: undefined;
   Files: undefined;
   Threads: undefined;

@@ -11,7 +11,7 @@ import {
 import { Feather, FontAwesome } from "@expo/vector-icons";
 import { GlassView } from "expo-glass-effect";
 import { EMOJI_QUICK } from "@relay/shared";
-import { wrapSelection } from "../lib/format";
+import { nextTypingEmit, wrapSelection } from "@relay/chat";
 import { canUseLiquidGlass } from "./Glass";
 import { colors } from "./theme";
 
@@ -23,6 +23,7 @@ export function Composer({
   sending,
   focusNonce,
   onFocus,
+  onTyping,
 }: {
   placeholder: string;
   onSend: (body: string) => void;
@@ -31,6 +32,7 @@ export function Composer({
   sending?: boolean;
   focusNonce?: number;
   onFocus?: () => void;
+  onTyping?: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const [sel, setSel] = useState({ start: 0, end: 0 });
@@ -39,6 +41,9 @@ export function Composer({
   const [emojiOpen, setEmojiOpen] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTyping = useRef(0);
+  const onTypingRef = useRef(onTyping);
+  onTypingRef.current = onTyping;
   const expanded = focused || draft.trim().length > 0;
   const canSend = Boolean(draft.trim()) && !sending;
   const liquid = canUseLiquidGlass();
@@ -72,20 +77,30 @@ export function Composer({
     inputRef.current?.focus();
   }
 
+  function emitTyping() {
+    const now = nextTypingEmit(lastTyping.current);
+    if (now == null) return;
+    lastTyping.current = now;
+    onTypingRef.current?.();
+  }
+
   function wrap(before: string, after = before) {
     keepFocus();
     const next = wrapSelection(draft, sel.start, sel.end, before, after);
     setDraft(next.text);
     setSel({ start: next.from, end: next.to });
+    if (next.text.trim()) emitTyping();
   }
 
   function insertAtCursor(value: string) {
     keepFocus();
     const start = sel.start;
     const end = sel.end;
-    setDraft(draft.slice(0, start) + value + draft.slice(end));
+    const next = draft.slice(0, start) + value + draft.slice(end);
+    setDraft(next);
     const pos = start + value.length;
     setSel({ start: pos, end: pos });
+    if (next.trim()) emitTyping();
   }
 
   function submit() {
@@ -123,7 +138,10 @@ export function Composer({
           placeholder={placeholder}
           placeholderTextColor={colors.faint}
           value={draft}
-          onChangeText={setDraft}
+          onChangeText={(text) => {
+            setDraft(text);
+            if (text.trim()) emitTyping();
+          }}
           onSelectionChange={(e) => setSel(e.nativeEvent.selection)}
           onFocus={onInputFocus}
           onBlur={onInputBlur}

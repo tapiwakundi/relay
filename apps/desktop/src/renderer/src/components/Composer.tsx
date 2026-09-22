@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { Member } from "@relay/shared";
+import { nextTypingEmit } from "@relay/chat";
 import { editorIsEmpty, escapeHtml, htmlToMarkdown, textBeforeCaret } from "../lib/format";
 import { Avatar } from "./Avatar";
 import { Bold, Code, Emoji, FormatText, Italic, Link, List, Mention, Plus, Send, Strike } from "./Icons";
@@ -34,15 +35,24 @@ export function Composer({
   });
   const ref = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const lastTyping = useRef(0);
   const mentionListId = useId();
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    lastTyping.current = 0;
     const saved = draftKey ? localStorage.getItem(`draft:${draftKey}`) : null;
     el.innerHTML = saved ?? "";
     setEmpty(editorIsEmpty(el));
   }, [draftKey]);
+
+  function emitTyping() {
+    const now = nextTypingEmit(lastTyping.current);
+    if (now == null) return;
+    lastTyping.current = now;
+    onTyping();
+  }
 
   function persist() {
     const el = ref.current;
@@ -282,7 +292,7 @@ export function Composer({
           data-placeholder={placeholder}
           suppressContentEditableWarning
           onInput={() => {
-            onTyping();
+            emitTyping();
             sync();
           }}
           onKeyUp={(e) => {

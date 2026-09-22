@@ -13,8 +13,9 @@
   },
   "dependencies": {
     "@better-auth/electron": "1.7.5",
+    "@relay/chat": "workspace:*",
     "@relay/shared": "workspace:*",
-    "@tanstack/react-query": "^5.103.1",
+    "@tanstack/react-query": "^5.103.2",
     "better-auth": "1.7.5",
     "conf": "^15.0.2",
     "dotenv": "^17.2.2",

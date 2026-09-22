@@ -4,7 +4,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ChatMessage, FileItem } from "@relay/shared";
 import { api } from "../lib/auth";
-import { formatTime } from "../lib/format";
+import { formatTime } from "@relay/chat";
 import { keys } from "../lib/query";
 import { useWorkspace } from "../lib/workspace";
 import { Avatar } from "../ui/Avatar";

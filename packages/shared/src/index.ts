@@ -30,6 +30,13 @@ export type WorkspaceSummary = Workspace & {
   mentionTotal?: number;
 };
 
+export type ChannelDetails = {
+  channel: Channel;
+  createdAt: string;
+  createdBy: { userId: string; name: string } | null;
+  memberIds: string[];
+};
+
 export type Channel = {
   id: string;
   workspaceId: string;
@@ -204,11 +211,26 @@ export type WsServerEvent =
   | { type: "huddle.updated"; huddle: Huddle | null; channelId: string; workspaceId?: string }
   | { type: "unread"; channelId: string; unreadCount: number; mentionCount: number; workspaceId?: string }
   | { type: "channel.created"; channel: Channel; workspaceId?: string }
+  | {
+      type: "channel.updated";
+      channelId: string;
+      workspaceId: string;
+      name: string;
+      topic: string | null;
+      description: string | null;
+      memberCount: number;
+    }
   | { type: "workspace.updated"; workspace: Workspace }
   | { type: "member.updated"; workspaceId: string; member: Member }
   | { type: "member.joined"; workspaceId: string; member: Member };
 
 export const EMOJI_QUICK = ["👍", "❤️", "😂", "🎉", "👀", "🔥", "✅", "🙌"] as const;
+
+export const WORKSPACE_ICON_COLORS = ["#1A5FB4", "#1264A3", "#007A5A", "#E01E5A", "#0E3C74", "#1164A3", "#ECB22E", "#E51670"] as const;
+
+export function slugChannelName(raw: string) {
+  return raw.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+}
 
 export type RelayAccountId = string;
 

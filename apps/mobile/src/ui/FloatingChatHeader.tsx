@@ -28,6 +28,7 @@ export function FloatingChatHeader({
   onHuddle,
   huddleJoined,
   huddleBusy,
+  onPeople,
 }: {
   title: string;
   subtitle?: string;
@@ -40,6 +41,7 @@ export function FloatingChatHeader({
   onHuddle?: () => void;
   huddleJoined?: boolean;
   huddleBusy?: boolean;
+  onPeople?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const liquid = canUseLiquidGlass();
@@ -78,6 +80,11 @@ export function FloatingChatHeader({
           ) : null}
         </View>
       </GlassChip>
+      {onPeople ? (
+        <GlassChip style={styles.circle} onPress={onPeople} accessibilityLabel="Channel details" liquid={liquid}>
+          <Ionicons name="person" size={20} color={colors.ink} />
+        </GlassChip>
+      ) : null}
       {onHuddle ? (
         <GlassChip
           style={styles.circle}

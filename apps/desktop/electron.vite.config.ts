@@ -10,13 +10,14 @@ export default defineConfig(({ command }) => {
 
   return {
     main: {
-      plugins: [externalizeDepsPlugin({ exclude: ["@relay/shared"] })],
+      plugins: [externalizeDepsPlugin({ exclude: ["@relay/shared", "@relay/chat"] })],
       define: {
         RELAY_PACKAGED_API_URL: JSON.stringify(command === "build" ? loaded.origin : ""),
       },
       resolve: {
         alias: {
           "@relay/shared": resolve(__dirname, "../../packages/shared/src/index.ts"),
+          "@relay/chat": resolve(__dirname, "../../packages/chat/src/index.ts"),
         },
       },
     },
@@ -40,6 +41,7 @@ export default defineConfig(({ command }) => {
       resolve: {
         alias: {
           "@relay/shared": resolve(__dirname, "../../packages/shared/src/index.ts"),
+          "@relay/chat": resolve(__dirname, "../../packages/chat/src/index.ts"),
           "@shared": resolve(__dirname, "src/shared/ipc.ts"),
         },
       },

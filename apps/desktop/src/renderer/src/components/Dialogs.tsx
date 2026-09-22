@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { Channel, InboxInvite, Invite, Member, Workspace } from "@relay/shared";
+import { WORKSPACE_ICON_COLORS, type Channel, type InboxInvite, type Invite, type Member, type Workspace } from "@relay/shared";
 import type { UpdateState } from "../../../shared/ipc";
 import { Avatar } from "./Avatar";
 import { Composer } from "./Composer";
@@ -457,51 +457,6 @@ function updateButtonLabel(update: UpdateState | null) {
   }
 }
 
-export function MembersDialog({
-  members,
-  onClose,
-}: {
-  members: Member[];
-  onClose: () => void;
-}) {
-  return (
-    <FormDialog title={`${members.length} members`} onClose={onClose}>
-      <div className="switcher-list">
-        {members.map((m) => (
-          <div key={m.userId} className="switcher-row">
-            {m.displayName} · {m.presence}
-          </div>
-        ))}
-      </div>
-    </FormDialog>
-  );
-}
-
-export function ChannelInfoDialog({
-  channel,
-  starred,
-  onStar,
-  onClose,
-}: {
-  channel: Channel;
-  starred: boolean;
-  onStar: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <FormDialog title={channel.isDm ? channel.name : `#${channel.name}`} onClose={onClose}>
-      <p className="dialog-copy">{channel.topic || channel.description || "No topic yet."}</p>
-      {!channel.isDm ? (
-        <button className="btn-primary" type="button" onClick={onStar}>
-          {starred ? "Unstar channel" : "Star channel"}
-        </button>
-      ) : null}
-    </FormDialog>
-  );
-}
-
-const ICON_COLORS = ["#1A5FB4", "#1264A3", "#007A5A", "#E01E5A", "#0E3C74", "#1164A3", "#ECB22E", "#E51670"];
-
 export function WorkspaceSettingsDialog({
   workspace,
   canEdit,
@@ -559,7 +514,7 @@ export function WorkspaceSettingsDialog({
         <div className="login-field">
           Icon color
           <div className="ws-swatches">
-            {ICON_COLORS.map((color) => (
+            {WORKSPACE_ICON_COLORS.map((color) => (
               <button
                 key={color}
                 type="button"

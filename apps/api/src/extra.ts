@@ -21,13 +21,18 @@ import {
 } from "./db/schema.js";
 import {
   acceptInvite,
+  addChannelMember,
   createInvite,
   createNamedChannel,
   createWorkspace,
+  getChannelDetails,
   inviteLink,
+  leaveChannel,
   listPendingInvitesForEmail,
   openDm,
   selectWorkspace,
+  toggleChannelMute,
+  updateChannel,
   type AuthPerson,
 } from "./domain.js";
 import { handle, routeParam } from "./errors.js";
@@ -259,6 +264,80 @@ export function registerExtraRoutes(authed: Hono<Env>, db: AppDb, hub: Hub) {
         .set({ isStarred: next })
         .where(and(eq(channelMember.channelId, channelId), eq(channelMember.userId, userId)));
       return c.json({ isStarred: next });
+    }),
+  );
+
+  authed.get(
+    "/channels/:id/details",
+    handle(async (c) => {
+      const details = await getChannelDetails(db, routeParam(c, "id"), c.get("userId"));
+      return c.json(details);
+    }),
+  );
+
+  authed.patch(
+    "/channels/:id",
+    handle(async (c) => {
+      const body = await c.req.json<{ name?: string; topic?: string | null; description?: string | null }>();
+      const details = await updateChannel(db, routeParam(c, "id"), c.get("userId"), body);
+      hub.broadcastToChannel(details.channel.id, {
+        type: "channel.updated",
+        channelId: details.channel.id,
+        workspaceId: details.channel.workspaceId,
+        name: details.channel.name,
+        topic: details.channel.topic,
+        description: details.channel.description,
+        memberCount: details.channel.memberCount,
+      });
+      return c.json(details);
+    }),
+  );
+
+  authed.post(
+    "/channels/:id/leave",
+    handle(async (c) => {
+      const left = await leaveChannel(db, routeParam(c, "id"), c.get("userId"));
+      hub.broadcastToChannel(left.channelId, {
+        type: "channel.updated",
+        channelId: left.channelId,
+        workspaceId: left.workspaceId,
+        name: left.name,
+        topic: left.topic,
+        description: left.description,
+        memberCount: left.memberCount,
+      });
+      return c.json({ ok: true });
+    }),
+  );
+
+  authed.post(
+    "/channels/:id/members",
+    handle(async (c) => {
+      const body = await c.req.json<{ userId: string }>();
+      const { forMember, details } = await addChannelMember(db, routeParam(c, "id"), c.get("userId"), body.userId);
+      hub.broadcastToUser(body.userId, {
+        type: "channel.created",
+        channel: forMember,
+        workspaceId: forMember.workspaceId,
+      });
+      hub.broadcastToChannel(details.channel.id, {
+        type: "channel.updated",
+        channelId: details.channel.id,
+        workspaceId: details.channel.workspaceId,
+        name: details.channel.name,
+        topic: details.channel.topic,
+        description: details.channel.description,
+        memberCount: details.channel.memberCount,
+      });
+      return c.json(details);
+    }),
+  );
+
+  authed.post(
+    "/channels/:id/mute",
+    handle(async (c) => {
+      const channelView = await toggleChannelMute(db, routeParam(c, "id"), c.get("userId"));
+      return c.json({ channel: channelView });
     }),
   );
 

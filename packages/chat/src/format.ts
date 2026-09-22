@@ -29,6 +29,10 @@ export function formatStamp(iso: string) {
   return `${formatDay(iso)} at ${formatTime(iso)}`;
 }
 
+export function formatCreatedOn(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+}
+
 export function sameMinute(a: string, b: string) {
   return Math.abs(new Date(a).getTime() - new Date(b).getTime()) < 5 * 60_000;
 }
@@ -41,35 +45,4 @@ export function wrapSelection(text: string, start: number, end: number, before: 
     from: start + before.length,
     to: start + before.length + selected.length,
   };
-}
-
-export const ICON_COLORS = ["#1A5FB4", "#1264A3", "#007A5A", "#E01E5A", "#0E3C74", "#1164A3", "#ECB22E", "#E51670"];
-
-export type BodyPart =
-  | { type: "text"; value: string }
-  | { type: "strong"; value: string }
-  | { type: "em"; value: string }
-  | { type: "code"; value: string }
-  | { type: "strike"; value: string }
-  | { type: "mention"; value: string }
-  | { type: "link"; value: string; href: string };
-
-export function parseBody(body: string): BodyPart[] {
-  const parts: BodyPart[] = [];
-  const re =
-    /\[([^\]]+)\]\((https?:[^)\s]+)\)|`([^`]+)`|\*([^*]+)\*|_([^_]+)_|~([^~]+)~|@([A-Za-z][A-Za-z0-9._-]*)/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(body))) {
-    if (m.index > last) parts.push({ type: "text", value: body.slice(last, m.index) });
-    if (m[1] && m[2]) parts.push({ type: "link", value: m[1], href: m[2] });
-    else if (m[3]) parts.push({ type: "code", value: m[3] });
-    else if (m[4]) parts.push({ type: "strong", value: m[4] });
-    else if (m[5]) parts.push({ type: "em", value: m[5] });
-    else if (m[6]) parts.push({ type: "strike", value: m[6] });
-    else if (m[7]) parts.push({ type: "mention", value: `@${m[7]}` });
-    last = m.index + m[0].length;
-  }
-  if (last < body.length) parts.push({ type: "text", value: body.slice(last) });
-  return parts.length ? parts : [{ type: "text", value: body }];
 }

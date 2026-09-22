@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
 import { api } from "../lib/auth";
-import { ICON_COLORS } from "../lib/format";
+import { WORKSPACE_ICON_COLORS } from "@relay/shared";
 import { keys, queryClient } from "../lib/query";
 import { useWorkspace } from "../lib/workspace";
 import { WorkspaceGlyph } from "../ui/Glyph";
@@ -84,7 +84,7 @@ export function WorkspaceSettingsScreen({ navigation }: Props) {
           />
           <Text style={styles.label}>Color</Text>
           <View style={styles.swatches}>
-            {ICON_COLORS.map((c) => (
+            {WORKSPACE_ICON_COLORS.map((c) => (
               <Pressable
                 key={c}
                 onPress={() => admin && setIconColor(c)}

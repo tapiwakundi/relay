@@ -1,5 +1,5 @@
 import { Linking, StyleSheet, Text, type TextStyle } from "react-native";
-import { parseBody } from "../lib/format";
+import { parseBody } from "@relay/chat";
 import { colors } from "./theme";
 
 export function MessageBody({ body, style }: { body: string; style?: TextStyle }) {

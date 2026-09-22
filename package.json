@@ -10,7 +10,7 @@
     "dev:landing": "pnpm --filter @relay/landing dev",
     "ios:device": "pnpm --filter @relay/mobile ios",
     "ios:sim": "pnpm --filter @relay/mobile ios:sim",
-    "build": "pnpm --filter @relay/shared build && pnpm --filter @relay/api build && pnpm --filter @relay/desktop build && pnpm --filter @relay/landing build",
+    "build": "pnpm --filter @relay/shared build && pnpm --filter @relay/chat build && pnpm --filter @relay/api build && pnpm --filter @relay/desktop build && pnpm --filter @relay/landing build",
     "build:landing": "pnpm --filter @relay/landing build",
     "release:desktop": "bash scripts/release-desktop.sh",
     "archive": "pnpm --filter @relay/mobile archive",

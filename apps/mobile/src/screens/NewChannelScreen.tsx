@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { slugChannelName } from "@relay/shared";
 import { api } from "../lib/auth";
 import { keys, queryClient } from "../lib/query";
 import { useWorkspace } from "../lib/workspace";
@@ -13,15 +14,6 @@ import type { RootStackParamList } from "../nav/types";
 type Props = NativeStackScreenProps<RootStackParamList, "NewChannel">;
 type Step = "name" | "visibility";
 
-function channelSlug(raw: string) {
-  return raw
-    .toLowerCase()
-    .replace(/[^a-z0-9-\s]/g, "")
-    .replace(/[\s_]+/g, "-")
-    .replace(/-+/g, "-")
-    .slice(0, 80);
-}
-
 export function NewChannelScreen({ navigation }: Props) {
   const { workspace } = useWorkspace();
   const [step, setStep] = useState<Step>("name");
@@ -29,7 +21,7 @@ export function NewChannelScreen({ navigation }: Props) {
   const [isPrivate, setPrivate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const slug = name.replace(/^-+|-+$/g, "");
+  const slug = slugChannelName(name).replace(/^-+|-+$/g, "");
   const ready = slug.length > 0;
 
   async function create() {
@@ -74,7 +66,7 @@ export function NewChannelScreen({ navigation }: Props) {
             <TextInput
               style={styles.input}
               value={name}
-              onChangeText={(value) => setName(channelSlug(value))}
+              onChangeText={(value) => setName(slugChannelName(value))}
               autoFocus
               autoCapitalize="none"
               autoCorrect={false}
