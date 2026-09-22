@@ -6,7 +6,7 @@ import * as Haptics from "expo-haptics";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { HuddleParticipant } from "@relay/shared";
-import { leaveHuddleCall, setHuddleMicMuted } from "../lib/huddle-call";
+import { isMicrophoneBlocked, leaveHuddleCall, setHuddleMicMuted } from "../lib/huddle-call";
 import { useWorkspace } from "../lib/workspace";
 import type { RootStackParamList } from "../nav/types";
 import { Avatar } from "../ui/Avatar";
@@ -48,7 +48,9 @@ export function HuddleScreen({ navigation, route }: Props) {
       await setHuddleMicMuted(channel.id, next);
     } catch (err) {
       setMuted(!next);
-      Alert.alert("Couldn't change mute", err instanceof Error ? err.message : "Try again.");
+      if (!isMicrophoneBlocked(err)) {
+        Alert.alert("Couldn't change mute", err instanceof Error ? err.message : "Try again.");
+      }
     } finally {
       setBusy(null);
     }

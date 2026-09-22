@@ -68,6 +68,10 @@ export type AuthResult = {
 export type MediaAccess = {
   microphone: boolean;
   camera: boolean;
+  microphoneStatus: "not-determined" | "granted" | "denied" | "restricted" | "unknown";
+  appName: string;
+  privacyName: string;
+  openedSettings: boolean;
 };
 
 export type UpdateState = {

@@ -467,7 +467,14 @@ export function WorkspaceApp() {
 
   async function joinHuddle() {
     if (!activeId) return;
-    await window.relayDesktop.prepareMedia();
+    const media = await window.relayDesktop.prepareMedia();
+    if (!media.microphone) {
+      setShareError(
+        `Microphone access is blocked for ${media.privacyName}. Turn it on in System Settings, then join the huddle again.`,
+      );
+    } else {
+      setShareError(null);
+    }
     const res = await api<{ huddle: Huddle; livekit: { url: string | null; token: string | null } }>(
       `/api/channels/${activeId}/huddle/join`,
       { method: "POST" },
@@ -475,12 +482,39 @@ export function WorkspaceApp() {
     setInHuddle(true);
     applyWsEvent({ type: "huddle.updated", channelId: activeId, huddle: res.huddle }, me?.id ?? "");
     if (res.livekit.url && res.livekit.token) {
+      const previous = roomRef.current;
+      roomRef.current = null;
+      if (previous) {
+        previous.removeAllListeners();
+        await previous.disconnect().catch(() => undefined);
+      }
       const room = new Room();
-      room.on(RoomEvent.Disconnected, () => setInHuddle(false));
-      await room.connect(res.livekit.url, res.livekit.token);
-      await room.startAudio().catch(() => undefined);
-      await room.localParticipant.setMicrophoneEnabled(!muted);
+      const channelId = activeId;
+      room.on(RoomEvent.Disconnected, () => {
+        if (roomRef.current !== room) return;
+        roomRef.current = null;
+        setInHuddle(false);
+        void api(`/api/channels/${channelId}/huddle/leave`, { method: "POST" });
+      });
       roomRef.current = room;
+      try {
+        await room.connect(res.livekit.url, res.livekit.token);
+      } catch {
+        if (roomRef.current === room) {
+          roomRef.current = null;
+          setInHuddle(false);
+          void api(`/api/channels/${channelId}/huddle/leave`, { method: "POST" });
+        }
+        return;
+      }
+      await room.startAudio().catch(() => undefined);
+      if (media.microphone && !muted) {
+        try {
+          await room.localParticipant.setMicrophoneEnabled(true);
+        } catch {
+          setShareError("Couldn't turn on the microphone. Allow microphone access, then join the huddle again.");
+        }
+      }
     }
     wsRef.current?.send({ type: "huddle.join", channelId: activeId });
   }
@@ -489,8 +523,9 @@ export function WorkspaceApp() {
     if (!activeId) return;
     await api(`/api/channels/${activeId}/huddle/leave`, { method: "POST" });
     wsRef.current?.send({ type: "huddle.leave", channelId: activeId });
-    await roomRef.current?.disconnect();
+    const room = roomRef.current;
     roomRef.current = null;
+    await room?.disconnect();
     setInHuddle(false);
     setSharing(false);
     setShareError(null);
@@ -684,6 +719,8 @@ export function WorkspaceApp() {
   const chans = channels.filter((c) => !c.isDm && !c.isStarred);
   const dms = channels.filter((c) => c.isDm);
   const huddle = active?.huddle ?? null;
+  const meInHuddle = Boolean(me && huddle?.participants.some((p) => p.userId === me.id));
+  const showHuddle = inHuddle || meInHuddle;
   const mentionTotal = channels.reduce((n, c) => n + c.mentionCount, 0);
   const liveHuddles = channels.filter((c) => c.huddle?.active);
   const drafts = listDrafts(channels);
@@ -1016,7 +1053,7 @@ export function WorkspaceApp() {
           )}
         </div>
 
-        {inHuddle && huddle && (
+        {showHuddle && huddle && (
           <div className="huddle-dock">
             <div className="who">
               <Headphones size={14} />
@@ -1102,7 +1139,7 @@ export function WorkspaceApp() {
               </div>
             </div>
 
-            {huddle?.active && !inHuddle && (
+            {huddle?.active && !showHuddle && (
               <div className="huddle-strip">
                 <Headphones size={14} />
                 {huddle.participants.map((p) => p.name.split(" ")[0]).join(", ")} in a huddle

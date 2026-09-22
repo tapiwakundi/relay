@@ -15,7 +15,7 @@ import type { Auth } from "./better-auth.js";
 import { message, reaction, user, workspace, workspaceMember } from "./db/schema.js";
 import { listPendingInvitesForEmail, registerDeviceToken, unregisterDeviceToken } from "./domain.js";
 import { handle, routeParam } from "./errors.js";
-import { joinHuddle, leaveHuddle, setHuddleMuted } from "./huddle.js";
+import { joinHuddle, leaveHuddle, leaveOpenHuddles, setHuddleMuted } from "./huddle.js";
 import { type Hub } from "./hub.js";
 import { provisionAuthedUser } from "./provision.js";
 import {
@@ -289,6 +289,14 @@ export function createApp(opts: { db: AppDb; hub: Hub; auth: Auth }) {
         userId: c.get("userId"),
       });
       return c.json(result);
+    }),
+  );
+
+  authed.post(
+    "/huddles/leave",
+    handle(async (c) => {
+      const left = await leaveOpenHuddles(db, hub, c.get("userId"));
+      return c.json({ left });
     }),
   );
 

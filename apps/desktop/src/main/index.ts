@@ -137,6 +137,30 @@ ipcMain.handle(relayChannels.pendingInvites, () => takePendingInvites());
 ipcMain.handle(relayChannels.prepareMedia, () => prepareMedia());
 ipcMain.handle(relayChannels.showEmojiPanel, () => app.showEmojiPanel());
 
+let allowQuit = false;
+let huddleCleanup: Promise<void> | null = null;
+
+function leaveDesktopHuddles() {
+  huddleCleanup ??= (async () => {
+    const accountIds = accountsSnapshot().accounts.map((account) => account.id);
+    await Promise.race([
+      Promise.all(
+        accountIds.map(async (accountId) => {
+          try {
+            await proxyApi({ path: "/api/huddles/leave", method: "POST", accountId });
+          } catch {
+            /* the window is already closing */
+          }
+        }),
+      ),
+      new Promise<void>((resolve) => setTimeout(resolve, 4000)),
+    ]);
+  })().finally(() => {
+    huddleCleanup = null;
+  });
+  return huddleCleanup;
+}
+
 function installContentSecurityPolicy() {
   if (!app.isPackaged) return;
   const api = new URL(API_ORIGIN).origin;
@@ -186,6 +210,15 @@ function createWindow() {
     },
   });
   setMainWindow(win);
+  let allowClose = false;
+  win.on("close", (event) => {
+    if (allowClose || allowQuit) return;
+    event.preventDefault();
+    void leaveDesktopHuddles().finally(() => {
+      allowClose = true;
+      win.close();
+    });
+  });
   win.webContents.on("preload-error", (_event, preloadPath, error) => {
     console.error("preload-error", preloadPath, error);
   });
@@ -219,6 +252,15 @@ app.whenReady().then(async () => {
   installContentSecurityPolicy();
   await hydrateAccounts();
   createWindow();
+});
+
+app.on("before-quit", (event) => {
+  if (allowQuit) return;
+  event.preventDefault();
+  void leaveDesktopHuddles().finally(() => {
+    allowQuit = true;
+    app.quit();
+  });
 });
 
 app.on("window-all-closed", () => {

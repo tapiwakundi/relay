@@ -1,4 +1,4 @@
-import { Alert, Platform } from "react-native";
+import { Alert, Linking, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import type { Huddle } from "@relay/shared";
 import { api } from "./auth";
@@ -99,7 +99,19 @@ export async function joinHuddleCall(channelId: string, opts?: { create?: boolea
   silenceHuddleRing(res.huddle?.id);
   rememberHuddle(channelId, res.huddle);
   void dismissHuddleNotification(res.huddle?.id ?? null);
-  if (res.livekit?.url && res.livekit.token) await connectHuddleAudio(res.livekit);
+  if (res.livekit?.url && res.livekit.token) {
+    const audio = await connectHuddleAudio(res.livekit);
+    if (audio === "denied") {
+      tellMicrophoneBlocked();
+      micMuted = true;
+      await api<{ huddle: Huddle | null }>(`/api/channels/${channelId}/huddle/mute`, {
+        method: "POST",
+        body: JSON.stringify({ muted: true }),
+      })
+        .then((muted) => rememberHuddle(channelId, muted.huddle))
+        .catch(() => undefined);
+    }
+  }
   return res;
 }
 
@@ -114,7 +126,40 @@ export async function leaveHuddleCall(channelId: string) {
   await disconnectHuddleAudio();
 }
 
+export class MicrophoneBlockedError extends Error {
+  constructor() {
+    super("Microphone access is off.");
+    this.name = "MicrophoneBlockedError";
+  }
+}
+
+export function isMicrophoneBlocked(err: unknown) {
+  return err instanceof MicrophoneBlockedError;
+}
+
+function tellMicrophoneBlocked() {
+  Alert.alert("Microphone is off", "Relay needs the microphone so you can talk in huddles.", [
+    { text: "Not now", style: "cancel" },
+    { text: "Open Settings", onPress: () => void Linking.openSettings() },
+  ]);
+}
+
+async function requestMicrophone() {
+  const { permissions } = (await import("@livekit/react-native-webrtc")) as {
+    permissions: { request: (desc: { name: string }) => Promise<boolean> };
+  };
+  const granted = await permissions.request({ name: "microphone" });
+  return granted === true || (granted as unknown) === 1;
+}
+
 export async function setHuddleMicMuted(channelId: string, muted: boolean) {
+  if (!muted) {
+    const granted = await requestMicrophone().catch(() => false);
+    if (!granted) {
+      tellMicrophoneBlocked();
+      throw new MicrophoneBlockedError();
+    }
+  }
   const previous = micMuted;
   micMuted = muted;
   await room?.localParticipant.setMicrophoneEnabled(!muted).catch(() => undefined);
@@ -173,9 +218,9 @@ async function connectHuddleAudio(creds: LivekitCreds) {
     await lk.AudioSession.startAudioSession();
     await lk.AudioSession.setDefaultRemoteAudioTrackVolume(1);
     stopAudio = () => lk.AudioSession.stopAudioSession();
+    const micGranted = await requestMicrophone().catch(() => false);
+    if (!micGranted) micMuted = true;
     const outputs = await lk.AudioSession.getAudioOutputs();
-    const speaker = outputs.find((output) => output === "force_speaker" || output === "speaker");
-    if (speaker) await lk.AudioSession.selectAudioOutput(speaker);
     if (room) await room.disconnect().catch(() => undefined);
     const next = new Room();
     next.on(RoomEvent.TrackSubscribed, (track) => {
@@ -183,12 +228,16 @@ async function connectHuddleAudio(creds: LivekitCreds) {
     });
     await next.connect(creds.url, creds.token);
     await next.startAudio().catch(() => undefined);
-    await next.localParticipant.setMicrophoneEnabled(!micMuted);
+    if (micGranted && !micMuted) await next.localParticipant.setMicrophoneEnabled(true);
+    const speaker = outputs.find((output) => output === "force_speaker" || output === "speaker");
+    if (speaker) await lk.AudioSession.selectAudioOutput(speaker).catch(() => undefined);
     room = next;
-    return true;
+    return micGranted ? "ok" : "denied";
   } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
     console.warn("[huddle] microphone unavailable", err);
-    return false;
+    Alert.alert("Couldn't start huddle audio", detail);
+    return "failed";
   }
 }
 

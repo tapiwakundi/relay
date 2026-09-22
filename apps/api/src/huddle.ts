@@ -148,6 +148,25 @@ export async function leaveHuddle(db: AppDb, hub: Hub, opts: { channelId: string
   return { huddle: state };
 }
 
+export async function leaveOpenHuddles(db: AppDb, hub: Hub, userId: string) {
+  const rows = await db
+    .select({ channelId: huddle.channelId })
+    .from(huddleParticipant)
+    .innerJoin(huddle, eq(huddleParticipant.huddleId, huddle.id))
+    .where(and(eq(huddleParticipant.userId, userId), isNull(huddle.endedAt)));
+  const channelIds = [...new Set(rows.map((row) => row.channelId))];
+  let left = 0;
+  for (const channelId of channelIds) {
+    try {
+      await leaveHuddle(db, hub, { channelId, userId });
+      left += 1;
+    } catch (err) {
+      console.error("[huddle] cleanup leave failed", err);
+    }
+  }
+  return left;
+}
+
 export async function endHuddleIfEmpty(db: AppDb, huddleId: string) {
   const parts = await db.select().from(huddleParticipant).where(eq(huddleParticipant.huddleId, huddleId));
   if (parts.length === 0) {
